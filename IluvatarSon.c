@@ -13,7 +13,7 @@
 
 #define ERROR_N_ARGS_MSG	"%sERROR: Not enough arguments\n"
 #define MIN_N_ARGS			2
-#define WELCOME_MSG			"%sWelcome %s, son of Iluvatar\n"
+#define WELCOME_MSG			"\n%sWelcome %s, son of Iluvatar\n"
 #define CMD_LINE_PROMPT		"%s%c "
 
 // TYPEDEFS
@@ -39,6 +39,7 @@ void readInputFile(char *filename) {
 int main(int argc, char* argv[]) {
     char *buffer = NULL;
 	char *command = NULL;
+	int exit_program = 0;
 	int n = 0;
 
 	// check args
@@ -55,18 +56,23 @@ int main(int argc, char* argv[]) {
 		n = asprintf(&buffer, WELCOME_MSG, COLOR_DEFAULT_TXT, "Galadriel");
 		write(STDOUT_FILENO, buffer, n);
 		free(buffer);
-		// open command line
-		n = asprintf(&buffer, CMD_LINE_PROMPT, COLOR_CLI_TXT, CMD_ID_BYTE);
-		write(STDOUT_FILENO, buffer, n);
-		free(buffer);
-		// get command
-		command = readCommand();
-		write(STDOUT_FILENO, COLOR_DEFAULT_TXT, strlen(COLOR_DEFAULT_TXT));
-		// execute command
 		
-		// free mem
-		if (NULL != command) {
-		    free(command);
+		// get commands
+		while (!exit_program) {
+		    // open command line
+		    n = asprintf(&buffer, CMD_LINE_PROMPT, COLOR_CLI_TXT, CMD_ID_BYTE);
+		    write(STDOUT_FILENO, buffer, n);
+		    free(buffer);
+		    // get command
+		    command = readCommand();
+		    write(STDOUT_FILENO, COLOR_DEFAULT_TXT, strlen(COLOR_DEFAULT_TXT));
+		    // execute command
+		    exit_program = executeCommand(command);
+		
+		    // free mem
+		    if (NULL != command) {
+		        free(command);
+		    }
 		}
 	}
 
