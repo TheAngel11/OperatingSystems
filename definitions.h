@@ -17,7 +17,7 @@ typedef struct {
 } IluvatarSon;
 
 typedef struct {
-    char *ip_adress;
+    char *ip_address;
 	int port;
 } Arda;
 
