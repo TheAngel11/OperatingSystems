@@ -12,6 +12,8 @@
 typedef struct {
     char *username;
 	char *directory;
+    char *arda_ip_address;
+    int arda_port;
 	char *ip_address;
 	int port;
 } IluvatarSon;
