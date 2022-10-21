@@ -1,5 +1,56 @@
 #include "commands.h"
 
+// MOVE to sharedFuncts
+#define printMsg(x) write(0, x, strlen(x))
+
+// MOVE to sharedFuncts
+char * readUntil(int fd, char delimiter) {
+    char *buffer = (char *) malloc (sizeof(char));
+	char byte = delimiter + 1;
+	int i = 0;
+
+	while (byte != delimiter) {
+	    read(fd, &byte, 1);
+		if (byte != delimiter) {
+		    buffer[i] = byte;
+			i++;
+			buffer = (char *) realloc (buffer, sizeof(char) * (i + 1));
+		}
+	}
+
+	buffer[i] = '\0';
+
+	return (buffer);
+}
+
+// MOVE to sharedFuncts
+char * splitString(char *string, char delimiter, int *pos) {
+     char *output = (char *) malloc (sizeof(char));
+	 int i = 0;
+
+	 if (NULL == output) {
+	     return NULL;
+	 }
+
+	 while (*pos < (int) strlen(string)) {
+	     if (string[*pos] == delimiter) {
+		     output[i] = '\0';
+			 // skip delimiter
+			 (*pos)++;
+			 return (output);
+		 }
+
+		 output[i] = string[*pos];
+		 output = (char *) realloc (output, sizeof(char) * (i + 2));		 
+		 (*pos)++;
+		 i++;
+	 }
+
+	 output[i] = '\0';
+
+	 return (output);
+}
+
 /*********************************************************************
  @Purpose: ----
  @Params: ----
@@ -7,59 +58,118 @@
 *********************************************************************/
 char* readCommand() {
 	char *command = NULL;
-	int n = 0, i = 0;
-
-	command = (char *) malloc (sizeof(char));
-	if (NULL == command) {
-	    // error
-		return (NULL);
-	}
-
-	// wait for input
-	do {
-	    n = read(STDIN_FILENO, &command[i], 1);
-	} while (n <= 0);
-
-	// read line
-    do {
-	    i++;
-		command = (char *) realloc (command, sizeof(char) * (i + 1));
-		n = read(STDIN_FILENO, &command[i], 1);
-	} while (CMD_END_BYTE != command[i]);
-
-	command[i] = '\0';
+	
+	command = readUntil(STDIN_FILENO, CMD_END_BYTE);
 
 	return (command);
 }
 
-/*********************************************************************
-* @Purpose: Separates a command to be able to identify if it is a
-*           custom command.
-* @Params: in: user_input = string containing the entire command
-* @Return: a string containing at most CMD_CUSTOM_MAX_WORDS words.
-*********************************************************************/
-char * getCommand(const char *user_input) {
-	char *command = (char *) malloc (sizeof(char));
-	int n_words = 0, i = 0;
+// separate command in args
+int getCmdArgs(char *input, char ***args) {
+	int n_args = 0, i = 0;
 
-	if (NULL != command) {
-	    for (i = 0; i < (int) strlen(user_input); i++) {
-	        command[i] = user_input[i];
-			if (user_input[i] == ' ') {
-		        n_words++;
-			}
-
-			if (n_words == CMD_CUSTOM_MAX_WORDS) {
-			    break;
-			}
-
-			command = (char *) realloc (command, sizeof(char) * (i + 2));
-		}
-
-		command[i] = '\0';
+	if (NULL != *args) {
+	    free(*args);
+		*args = NULL;
 	}
 
-	return (command);
+	*args = (char **) malloc (sizeof(char *));
+	if (NULL == *args) {
+	    return (n_args);
+	}
+
+	while (i < (int) strlen(input)) {
+	    (*args)[n_args] = splitString(input, ' ', &i);
+		n_args++;
+		if (i < (int) strlen(input)) {
+		    (*args) = (char **) realloc (*args, sizeof(char *) * (n_args + 1));
+		}
+	}
+
+	return (n_args);
+}
+
+int identifyCommand(char **args, int n_args) {
+    char * concat_args = NULL;
+
+	if (EXIT_N_ARGS == n_args) {
+	    if (0 == strcasecmp(args[0], EXIT_CMD)) {
+		    return (IS_EXIT_CMD);
+		} else {
+		    return (IS_NOT_CUSTOM_CMD);
+		}
+	} else {
+	    concat_args = (char *) malloc (sizeof(char) * (strlen(args[0]) + strlen(args[1]) + 2));
+		concat_args[0] = '\0';
+		strcat(concat_args, args[0]);
+		strcat(concat_args, " ");
+		strcat(concat_args, args[1]);
+	   
+		if ((0 == strcasecmp(concat_args, UPDATE_USERS_CMD)) && (n_args == UPDATE_USERS_N_ARGS)) {
+		    free(concat_args);
+			return (IS_UPDATE_USERS_CMD);
+		} else if ((0 == strcasecmp(concat_args, LIST_USERS_CMD)) && (n_args == LIST_USERS_N_ARGS)) {
+		    free(concat_args);
+		    return (IS_LIST_USERS_CMD);
+		} else if ((0 == strcasecmp(concat_args, SEND_MSG_CMD)) && (n_args == SEND_MSG_N_ARGS)) {
+		    free(concat_args);
+		    return (IS_SEND_MSG_CMD);
+		} else if ((0 == strcasecmp(concat_args, SEND_FILE_CMD)) && (n_args == SEND_FILE_N_ARGS)) {
+		    free(concat_args);
+		    return (IS_SEND_FILE_CMD);
+		} else {
+		    free(concat_args);
+		    return (IS_NOT_CUSTOM_CMD);
+		}
+	}
+}
+
+void executeCustomCommand(int id) {
+    char *buffer = NULL;
+
+	switch (id) {
+	    case IS_UPDATE_USERS_CMD:
+		    asprintf(&buffer, "%s\n", UPDATE_USERS_CMD);
+			printMsg(buffer);
+			free(buffer);
+			break;
+		case IS_LIST_USERS_CMD:
+		    asprintf(&buffer, "%s\n", LIST_USERS_CMD);
+			printMsg(buffer);
+			free(buffer);
+			break;
+		case IS_SEND_MSG_CMD:
+		    asprintf(&buffer, "%s\n", SEND_MSG_CMD);
+			printMsg(buffer);
+			free(buffer);
+			break;
+		case IS_SEND_FILE_CMD:
+		    asprintf(&buffer, "%s\n", SEND_FILE_CMD);
+			printMsg(buffer);
+			free(buffer);
+			break;
+		default:
+		    // exit command
+		    asprintf(&buffer, "%s\n", EXIT_CMD);
+			printMsg(buffer);
+			free(buffer);
+			break;
+	}
+}
+
+void freeMemCmd(char ***args, int *n_args) {
+    int i = 0;
+
+	for (i = 0; i < *n_args; i++) {
+	    if (NULL != (*args)[i]) {
+		    free((*args)[i]);
+			(*args)[i] = NULL;
+		}
+	}
+
+	free(*args);
+	*args = NULL;
+	*n_args = 0;
 }
 
 /*********************************************************************
@@ -68,14 +178,13 @@ char * getCommand(const char *user_input) {
 * @Return: 0 if EXIT command entered, otherwise 1.
 *********************************************************************/
 int executeCommand(char *user_input) {
-    char *command = NULL;
-	char *cli_message = NULL;
-	int n = 0;
+    char **command = NULL;
+	int n_args = 0, cmd_id = 0;
 	int pid = -1, status = 0;
 
-	command = getCommand(user_input);
+	n_args = getCmdArgs(user_input, &command);
 
-	if (NULL != command) {
+	if (0 < n_args) {
 	    pid = fork();
 
 		switch (pid) {
@@ -84,42 +193,23 @@ int executeCommand(char *user_input) {
 				break;
 			case 0:
 				// identify command
-				if (strcasecmp(command, UPDATE_USERS_CMD) == 0) {
-				    //
-					n = asprintf(&cli_message, "%s\n", UPDATE_USERS_CMD);
-					write(STDOUT_FILENO, cli_message, n);
-					free(cli_message);
-				} else if (strcasecmp(command, LIST_USERS_CMD) == 0) {
-				    //
-					n = asprintf(&cli_message, "%s\n", LIST_USERS_CMD);
-					write(STDOUT_FILENO, cli_message, n);
-					free(cli_message);
-				} else if (strcasecmp(command, SEND_MSG_CMD) == 0) {
-				    //
-					n = asprintf(&cli_message, "%s\n", SEND_MSG_CMD);
-					write(STDOUT_FILENO, cli_message, n);
-					free(cli_message);
-				} else if (strcasecmp(command, SEND_FILE_CMD) == 0) {
-				    //
-					n = asprintf(&cli_message, "%s\n", SEND_FILE_CMD);
-					write(STDOUT_FILENO, cli_message, n);
-					free(cli_message);
-				} else if (strcasecmp(command, EXIT_CMD) == 0) {
-				    //
-					n = asprintf(&cli_message, "%s\n", EXIT_CMD);
-					write(STDOUT_FILENO, cli_message, n);
-					free(cli_message);
-					// notify Iluvatar son has to stop
-					free(command);
-					free(user_input);
-					exit(IS_EXIT_CMD);
-				} else {
+				cmd_id = identifyCommand(command, n_args);
+
+				if (IS_NOT_CUSTOM_CMD == cmd_id) {
 				    // execute as Linux command
 				    execl("/bin/sh", "sh", "-c", user_input, (char *) NULL);
+				} else {
+				    // execute custom command
+					executeCustomCommand(cmd_id);
+					if (cmd_id == IS_EXIT_CMD) {
+					    freeMemCmd(&command, &n_args);
+						free(user_input);
+						exit(IS_EXIT_CMD);
+					}
 				}
 
 				// free mem
-				free(command);
+				freeMemCmd(&command, &n_args);
 				free(user_input);
 				exit(0);
 				break;
@@ -127,9 +217,8 @@ int executeCommand(char *user_input) {
 			    wait(&status);
 				if (0 != WEXITSTATUS(status)) {
 				    if (IS_EXIT_CMD == WEXITSTATUS(status)) {
-					    free(command);
+						freeMemCmd(&command, &n_args);
 						return (1);
-						//*exit_iluvatar = 1;
 					} else {
 					    // Invalid Linux command
 					    write(STDOUT_FILENO, UNKNOWN_CMD_MSG, strlen(UNKNOWN_CMD_MSG));
@@ -137,7 +226,7 @@ int executeCommand(char *user_input) {
 				}
 
 				// free mem
-				free(command);
+				freeMemCmd(&command, &n_args);
 				break;
 		}	
 	}

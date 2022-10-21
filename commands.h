@@ -19,9 +19,22 @@
 #define EXIT_CMD				"EXIT\0"
 #define CMD_ID_BYTE				'$'
 #define CMD_END_BYTE			'\n'
-#define CMD_CUSTOM_MAX_WORDS	2
 #define UNKNOWN_CMD_MSG			"Unknown command\n"
+
+/* Number of required args for custom command */
+#define UPDATE_USERS_N_ARGS		2
+#define LIST_USERS_N_ARGS		2
+#define SEND_MSG_N_ARGS			4
+#define SEND_FILE_N_ARGS		4
+#define EXIT_N_ARGS				1
+
+/* ID to identify custom command */
+#define IS_UPDATE_USERS_CMD		1
+#define IS_LIST_USERS_CMD		2
+#define IS_SEND_MSG_CMD			3
+#define IS_SEND_FILE_CMD		4
 #define IS_EXIT_CMD				5
+#define IS_NOT_CUSTOM_CMD		0
 
 char * readCommand();
 
