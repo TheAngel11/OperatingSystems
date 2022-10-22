@@ -9,7 +9,9 @@
 #include <strings.h> // function strcasecmp() is case insensitive
 #include <string.h>
 #include <sys/wait.h>
+
 #include "definitions.h"
+#include "sharedFunctions.h"
 
 /* CUSTOM COMMANDS */
 #define UPDATE_USERS_CMD		"UPDATE USERS\0"
@@ -36,8 +38,6 @@
 #define IS_EXIT_CMD				5
 #define IS_NOT_CUSTOM_CMD		0
 
-char * readCommand();
-
-int executeCommand(char *user_input);
+int executeCommand(char *user_input, IluvatarSon *iluvatar);
 
 #endif

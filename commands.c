@@ -1,86 +1,5 @@
 #include "commands.h"
 
-// MOVE to sharedFuncts
-#define printMsg(x) write(0, x, strlen(x))
-
-// MOVE to sharedFuncts
-/*********************************************************************
-* @Purpose: Read a string from a file descriptor, stopping at a given
-*           char.
-* @Params: in: fd = file descriptor
-*          in: delimiter = char marking where to stop reading
-* @Return: Returns a string.
-*********************************************************************/
-char * readUntil(int fd, char delimiter) {
-    char *buffer = (char *) malloc (sizeof(char));
-	char byte = delimiter + 1;
-	int i = 0;
-
-	while (byte != delimiter) {
-	    read(fd, &byte, 1);
-		if (byte != delimiter) {
-		    buffer[i] = byte;
-			i++;
-			buffer = (char *) realloc (buffer, sizeof(char) * (i + 1));
-		}
-	}
-
-	buffer[i] = '\0';
-
-	return (buffer);
-}
-
-// MOVE to sharedFuncts
-/*********************************************************************
-* @Purpose: Splits a string given a char.
-* @Params: in: string = original string to split
-*          in: delimiter = char marking split point
-*		   in/out: pos = int that indicates the position at which to
-*		                 start parsing the string. After split is done
-*						 it is updated so that consecutive splits of
-*						 the same string can be done.
-* @Return: Returns a string containin a part of the original string.
-*********************************************************************/
-char * splitString(char *string, char delimiter, int *pos) {
-     char *output = (char *) malloc (sizeof(char));
-	 int i = 0;
-
-	 if (NULL == output) {
-	     return NULL;
-	 }
-
-	 while (*pos < (int) strlen(string)) {
-	     if (string[*pos] == delimiter) {
-		     output[i] = '\0';
-			 // skip delimiter
-			 (*pos)++;
-			 return (output);
-		 }
-
-		 output[i] = string[*pos];
-		 output = (char *) realloc (output, sizeof(char) * (i + 2));		 
-		 (*pos)++;
-		 i++;
-	 }
-
-	 output[i] = '\0';
-
-	 return (output);
-}
-
-/*********************************************************************
- @Purpose: ----
- @Params: ----
- @Return: ----
-*********************************************************************/
-char* readCommand() {
-	char *command = NULL;
-	
-	command = readUntil(STDIN_FILENO, CMD_END_BYTE);
-
-	return (command);
-}
-
 /*********************************************************************
 * @Purpose: Separates a command into its arguments.
 * @Params: in: input = string containing the entire command
@@ -220,7 +139,7 @@ void freeMemCmd(char ***args, int *n_args) {
 * @Params: in: user_input = entire command (with args) entered by user
 * @Return: 0 if EXIT command entered, otherwise 1.
 *********************************************************************/
-int executeCommand(char *user_input) {
+int executeCommand(char *user_input, IluvatarSon *iluvatar) {
     char **command = NULL;
 	int n_args = 0, cmd_id = 0;
 	int pid = -1, status = 0;
@@ -247,12 +166,14 @@ int executeCommand(char *user_input) {
 					if (cmd_id == IS_EXIT_CMD) {
 					    freeMemCmd(&command, &n_args);
 						free(user_input);
+						freeIluvatarSon(iluvatar);
 						exit(IS_EXIT_CMD);
 					}
 				}
 
 				// free mem
 				freeMemCmd(&command, &n_args);
+				freeIluvatarSon(iluvatar);
 				free(user_input);
 				exit(0);
 				break;
@@ -264,7 +185,7 @@ int executeCommand(char *user_input) {
 						return (1);
 					} else {
 					    // Invalid Linux command
-					    write(STDOUT_FILENO, UNKNOWN_CMD_MSG, strlen(UNKNOWN_CMD_MSG));
+					    printMsg(UNKNOWN_CMD_MSG);
 					}
 				}
 
