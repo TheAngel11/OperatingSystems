@@ -4,10 +4,15 @@
 #include <string.h>
 #include <stdlib.h>
 
-// CONSTANTS
+#define ERROR_OPENING_FILE	"ERROR: File %s could not be opened\n"
+
 #define COLOR_DEFAULT_TXT	"\033[0m"
 #define COLOR_CLI_TXT		"\033[1;36m"
 #define COLOR_RED_TXT		"\033[1;31m"
+#define END_OF_LINE		    '\n'
+
+/* General Protocol Communication (GPC) constants */
+#define GPC_DATA_SEPARATOR	'&'
 
 typedef struct {
     char *username;
