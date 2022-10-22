@@ -4,6 +4,13 @@
 #define printMsg(x) write(0, x, strlen(x))
 
 // MOVE to sharedFuncts
+/*********************************************************************
+* @Purpose: Read a string from a file descriptor, stopping at a given
+*           char.
+* @Params: in: fd = file descriptor
+*          in: delimiter = char marking where to stop reading
+* @Return: Returns a string.
+*********************************************************************/
 char * readUntil(int fd, char delimiter) {
     char *buffer = (char *) malloc (sizeof(char));
 	char byte = delimiter + 1;
@@ -24,6 +31,16 @@ char * readUntil(int fd, char delimiter) {
 }
 
 // MOVE to sharedFuncts
+/*********************************************************************
+* @Purpose: Splits a string given a char.
+* @Params: in: string = original string to split
+*          in: delimiter = char marking split point
+*		   in/out: pos = int that indicates the position at which to
+*		                 start parsing the string. After split is done
+*						 it is updated so that consecutive splits of
+*						 the same string can be done.
+* @Return: Returns a string containin a part of the original string.
+*********************************************************************/
 char * splitString(char *string, char delimiter, int *pos) {
      char *output = (char *) malloc (sizeof(char));
 	 int i = 0;
@@ -64,7 +81,13 @@ char* readCommand() {
 	return (command);
 }
 
-// separate command in args
+/*********************************************************************
+* @Purpose: Separates a command into its arguments.
+* @Params: in: input = string containing the entire command
+*          in/out: args = array of strings to store the arguments of
+*		                  the command (input)
+* @Return: Returns the number of arguments of the command.
+*********************************************************************/
 int getCmdArgs(char *input, char ***args) {
 	int n_args = 0, i = 0;
 
@@ -89,6 +112,13 @@ int getCmdArgs(char *input, char ***args) {
 	return (n_args);
 }
 
+/*********************************************************************
+* @Purpose: Identifies the custom command or if it is not a custom one.
+* @Params: in: args = array of strings containing the arguments of the
+*                     command
+*		   in: n_args = number of arguments
+* @Return: Returns the ID of the custom command or IS_NOT_CUSTOM_CMD.
+*********************************************************************/
 int identifyCommand(char **args, int n_args) {
     char * concat_args = NULL;
 
@@ -124,6 +154,12 @@ int identifyCommand(char **args, int n_args) {
 	}
 }
 
+/*********************************************************************
+* @Purpose: Executes a custom command given its ID. Currently only
+*           prints the selected command.
+* @Params: in: id = ID of the custom command to execute
+* @Return: ----
+*********************************************************************/
 void executeCustomCommand(int id) {
     char *buffer = NULL;
 
@@ -157,6 +193,13 @@ void executeCustomCommand(int id) {
 	}
 }
 
+/*********************************************************************
+* @Purpose: Frees allocated memory for the command.
+* @Params: in/out: args = array of strings containing the command's
+*                         arguments
+*          in/out: n_args = number of arguments
+* @Return: ----
+*********************************************************************/
 void freeMemCmd(char ***args, int *n_args) {
     int i = 0;
 

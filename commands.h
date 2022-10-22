@@ -1,7 +1,7 @@
 #ifndef _COMMANDS_H_
 #define _COMMANDS_H_
 
-#define _GNU_SOURCE
+#define _GNU_SOURCE 1
 
 #include <stdio.h>
 #include <unistd.h>
