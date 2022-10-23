@@ -152,6 +152,9 @@ int executeCommand(char *user_input, IluvatarSon *iluvatar) {
 		switch (pid) {
 		    case -1:
 			    // error
+				printMsg(COLOR_RED_TXT);
+				printMsg(ERROR_CREATING_CHILD);
+				printMsg(COLOR_DEFAULT_TXT);
 				break;
 			case 0:
 				// identify command

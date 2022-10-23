@@ -4,7 +4,7 @@
 #include <signal.h>
 
 #include "commands.h"
-#include "sharedFunctions.h"
+#include "../sharedFunctions.h"
 
 #define MIN_N_ARGS 		2
 #define WELCOME_MSG 	"\n%sWelcome %s, son of Iluvatar\n"
@@ -12,13 +12,22 @@
 #define ILUVATARSON_OK	0		
 #define ILUVATARSON_KO	-1
 
+IluvatarSon iluvatarSon;
+char *iluvatar_command = NULL;
+
 /*********************************************************************
  @Purpose: Free memory when SIGINT received.
  @Params: ----
  @Return: ----
 *********************************************************************/
 void sigintHandler() {
-    //
+    freeIluvatarSon(&iluvatarSon);
+	if (NULL != iluvatar_command) {
+	    free(iluvatar_command);
+	}
+	
+	signal(SIGINT, SIG_DFL);
+	raise(SIGINT);
 }
 
 /*********************************************************************
@@ -84,12 +93,12 @@ int readIluvatarSon(char *filename, IluvatarSon *iluvatar) {
 *********************************************************************/
 int main(int argc, char* argv[]) {
     char *buffer = NULL;
-	char *command = NULL;
+	char *command = iluvatar_command;
 	int exit_program = 0, read_ok = ILUVATARSON_KO;
-    IluvatarSon iluvatarSon = newIluvatarSon();
-
+	
+	iluvatarSon = newIluvatarSon();
 	// Configure SIGINT
-	//signal(SIGINT, sigintHandler);
+	signal(SIGINT, sigintHandler);
 	
 	// check args
 	if (MIN_N_ARGS > argc) {
@@ -118,7 +127,7 @@ int main(int argc, char* argv[]) {
 		
 		// get commands
 		while (!exit_program) {
-		    // open command line
+			// open command line
 		    asprintf(&buffer, CMD_LINE_PROMPT, COLOR_CLI_TXT, CMD_ID_BYTE);
 		    printMsg(buffer);
 		    free(buffer);
