@@ -1,3 +1,11 @@
+/*********************************************************************
+* @Purpose: Module that contains different functions that are shared
+*           among other modules.
+* @Authors: Claudia Lajara Silvosa
+*           Angel Garcia Gascon
+* @Date: 18/10/2022
+* @Last change: 23/10/2022
+*********************************************************************/
 #include "sharedFunctions.h"
 
 /*********************************************************************

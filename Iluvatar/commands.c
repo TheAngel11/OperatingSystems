@@ -1,3 +1,11 @@
+/*********************************************************************
+* @Purpose: Module that contains functions to manage the custom
+*           commands for an IluvatarSon.
+* @Authors: Claudia Lajara Silvosa
+*           Angel Garcia Gascon
+* @Date: 07/10/2022
+* @Last change: 23/10/2022
+*********************************************************************/
 #include "commands.h"
 
 /*********************************************************************
