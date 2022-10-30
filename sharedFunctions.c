@@ -1,3 +1,11 @@
+/*********************************************************************
+* @Purpose: Module that contains different functions that are shared
+*           among other modules.
+* @Authors: Claudia Lajara Silvosa
+*           Angel Garcia Gascon
+* @Date: 18/10/2022
+* @Last change: 23/10/2022
+*********************************************************************/
 #include "sharedFunctions.h"
 
 /*********************************************************************
@@ -8,14 +16,17 @@
 * @Return: Returns a string.
 *********************************************************************/
 char * readUntil(int fd, char delimiter) {
-    char *buffer = (char *) malloc (sizeof(char));
+    char *buffer = NULL;
 	char byte = delimiter + 1;
 	int i = 0, n = -1;
 
 	while ((byte != delimiter) && (n != 0)) {
-	    n = read(fd, &byte, 1);
+		n = read(fd, &byte, 1);
 		if ((byte != delimiter) && (n != 0)) {
-		    buffer[i] = byte;
+		    if (NULL == buffer) {
+			    buffer = (char *) malloc (sizeof(char));
+			}
+			buffer[i] = byte;
 			i++;
 			buffer = (char *) realloc (buffer, sizeof(char) * (i + 1));
 		}

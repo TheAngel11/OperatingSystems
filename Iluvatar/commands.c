@@ -1,3 +1,11 @@
+/*********************************************************************
+* @Purpose: Module that contains functions to manage the custom
+*           commands for an IluvatarSon.
+* @Authors: Claudia Lajara Silvosa
+*           Angel Garcia Gascon
+* @Date: 07/10/2022
+* @Last change: 23/10/2022
+*********************************************************************/
 #include "commands.h"
 
 /*********************************************************************
@@ -152,6 +160,9 @@ int executeCommand(char *user_input, IluvatarSon *iluvatar) {
 		switch (pid) {
 		    case -1:
 			    // error
+				printMsg(COLOR_RED_TXT);
+				printMsg(ERROR_CREATING_CHILD);
+				printMsg(COLOR_DEFAULT_TXT);
 				break;
 			case 0:
 				// identify command

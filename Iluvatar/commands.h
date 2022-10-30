@@ -10,8 +10,8 @@
 #include <string.h>
 #include <sys/wait.h>
 
-#include "definitions.h"
-#include "sharedFunctions.h"
+#include "../definitions.h"
+#include "../sharedFunctions.h"
 
 /* CUSTOM COMMANDS */
 #define UPDATE_USERS_CMD		"UPDATE USERS\0"
