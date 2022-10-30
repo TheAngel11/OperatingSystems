@@ -27,6 +27,7 @@ typedef struct {
 typedef struct {
     char *ip_address;
 	int port;
+    char *directory;
 } Arda;
 
 #endif

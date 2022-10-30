@@ -64,4 +64,11 @@ char * removeChar(char *string, char unwanted);
 ***********************************************************************/
 void freeIluvatarSon(IluvatarSon *iluvatarSon);
 
+/**********************************************************************
+* @Purpose: Frees dynamic memory allocated for the server Arda.
+* @Params: in/out: arda = Arda pointer referencing the server Arda      
+* @Return: ----
+***********************************************************************/
+void freeArda(Arda *arda);
+
 #endif

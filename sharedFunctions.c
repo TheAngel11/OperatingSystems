@@ -139,3 +139,19 @@ void freeIluvatarSon(IluvatarSon *iluvatarSon) {
 		iluvatarSon->arda_ip_address = NULL;
 	}
 }
+
+/**********************************************************************
+* @Purpose: Frees dynamic memory allocated for the server Arda.
+* @Params: in/out: arda = Arda pointer referencing the server Arda      
+* @Return: ----
+***********************************************************************/
+void freeArda(Arda *arda) {
+	if (NULL != arda->ip_address) {
+        free(arda->ip_address);
+		arda->ip_address = NULL;
+	}
+	if (NULL != arda->directory) {
+        free(arda->directory);
+		arda->directory = NULL;
+	}
+}
