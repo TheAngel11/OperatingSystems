@@ -204,8 +204,19 @@ int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar) {
 	int pid = -1, status = 0;
 
 	n_args = getCmdArgs(user_input, &command);
-
-	if (0 < n_args) {
+	// identify command
+	cmd_id = identifyCommand(command, n_args);
+	
+	if ((ERROR_CMD_ARGS != cmd_id) && (IS_NOT_CUSTOM_CMD != cmd_id)) {
+	    // execute custom command
+		executeCustomCommand(cmd_id);
+		
+		if (cmd_id == IS_EXIT_CMD) {
+			freeMemCmd(&command, &n_args);
+			SHAREDFUNCTIONS_freeIluvatarSon(iluvatar);
+			return (1);
+		}
+	} else if (IS_NOT_CUSTOM_CMD == cmd_id) {
 	    pid = fork();
 
 		switch (pid) {
@@ -216,22 +227,8 @@ int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar) {
 				printMsg(COLOR_DEFAULT_TXT);
 				break;
 			case 0:
-				// identify command
-				cmd_id = identifyCommand(command, n_args);
-
-				if (IS_NOT_CUSTOM_CMD == cmd_id) {
-				    // execute as Linux command
-				    execl("/bin/sh", "sh", "-c", user_input, (char *) NULL);
-				} else if (ERROR_CMD_ARGS != cmd_id) {
-				    // execute custom command
-					executeCustomCommand(cmd_id);
-					if (cmd_id == IS_EXIT_CMD) {
-					    freeMemCmd(&command, &n_args);
-						free(user_input);
-						SHAREDFUNCTIONS_freeIluvatarSon(iluvatar);
-						exit(IS_EXIT_CMD);
-					}
-				}
+				// execute as Linux command
+				execl("/bin/sh", "sh", "-c", user_input, (char *) NULL);
 
 				// free mem
 				freeMemCmd(&command, &n_args);
@@ -242,20 +239,15 @@ int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar) {
 			default:
 			    wait(&status);
 				if (0 != WEXITSTATUS(status)) {
-				    if (IS_EXIT_CMD == WEXITSTATUS(status)) {
-						freeMemCmd(&command, &n_args);
-						return (1);
-					} else {
-					    // Invalid Linux command
-					    printMsg(UNKNOWN_CMD_MSG);
-					}
+					// Invalid Linux command
+					printMsg(UNKNOWN_CMD_MSG);
 				}
-
-				// free mem
-				freeMemCmd(&command, &n_args);
 				break;
 		}	
 	}
+	
+	// free mem
+	freeMemCmd(&command, &n_args);
 
 	return (0);
 }
