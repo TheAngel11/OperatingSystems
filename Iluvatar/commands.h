@@ -21,7 +21,13 @@
 #define EXIT_CMD				"EXIT\0"
 #define CMD_ID_BYTE				'$'
 #define CMD_END_BYTE			'\n'
+#define CMD_MSG_SEPARATOR		'"'
+
+/* Messages */
 #define UNKNOWN_CMD_MSG			"Unknown command\n"
+#define ERROR_SEND_MSG_FORMAT	"ERROR: Missing message separators\n"
+#define ERROR_SEND_MSG_ARGS		"ERROR: \"SEND MSG\" requires a user and a message\n"
+#define ERROR_SEND_FILE_ARGS	"ERROR: \"SEND FILE\" requires a user and a file\n"
 
 /* Number of required args for custom command */
 #define UPDATE_USERS_N_ARGS		2
@@ -37,6 +43,7 @@
 #define IS_SEND_FILE_CMD		4
 #define IS_EXIT_CMD				5
 #define IS_NOT_CUSTOM_CMD		0
+#define ERROR_CMD_ARGS			-1
 
 int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar);
 

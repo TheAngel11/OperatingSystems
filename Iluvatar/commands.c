@@ -4,7 +4,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 23/10/2022
+* @Last change: 02/11/2022
 *********************************************************************/
 #include "commands.h"
 
@@ -17,6 +17,7 @@
 *********************************************************************/
 int getCmdArgs(char *input, char ***args) {
 	int n_args = 0, i = 0;
+	char *tmp_arg = NULL;
 
 	if (NULL != *args) {
 	    free(*args);
@@ -29,8 +30,31 @@ int getCmdArgs(char *input, char ***args) {
 	}
 
 	while (i < (int) strlen(input)) {
-	    (*args)[n_args] = SHAREDFUNCTIONS_splitString(input, ' ', &i);
-		n_args++;
+		if (CMD_MSG_SEPARATOR == input[i]) {
+		    i++;
+			tmp_arg = SHAREDFUNCTIONS_splitString(input, CMD_MSG_SEPARATOR, &i);
+			(*args)[n_args] = (char *) malloc (sizeof(char) * (strlen(tmp_arg) + 3));
+			(*args)[n_args][0] = CMD_MSG_SEPARATOR;
+			(*args)[n_args][1] = '\0';
+			strcat((*args)[n_args], tmp_arg);
+			free(tmp_arg);
+			tmp_arg = NULL;
+			asprintf(&tmp_arg, "%c", CMD_MSG_SEPARATOR);
+			strcat((*args)[n_args], tmp_arg);
+			free(tmp_arg);
+			tmp_arg = NULL;
+			n_args++;
+		} else {
+		    (*args)[n_args] = SHAREDFUNCTIONS_splitString(input, ' ', &i);
+			n_args++;
+		}
+		
+		// skip ' '
+		while ((input[i] == ' ') && (i < (int) strlen(input))) {
+		    i++;
+		}
+		
+		// next argument
 		if (i < (int) strlen(input)) {
 		    (*args) = (char **) realloc (*args, sizeof(char *) * (n_args + 1));
 		}
@@ -68,11 +92,38 @@ int identifyCommand(char **args, int n_args) {
 		} else if ((0 == strcasecmp(concat_args, LIST_USERS_CMD)) && (n_args == LIST_USERS_N_ARGS)) {
 		    free(concat_args);
 		    return (IS_LIST_USERS_CMD);
-		} else if ((0 == strcasecmp(concat_args, SEND_MSG_CMD)) && (n_args == SEND_MSG_N_ARGS)) {
+		} else if (0 == strcasecmp(concat_args, SEND_MSG_CMD)) {
+		    if (n_args == SEND_MSG_N_ARGS) {
+				// check "s
+				if (('"' != args[n_args - 1][0]) || ('"' != args[n_args - 1][strlen(args[n_args - 1]) - 1])) {
+				    printMsg(COLOR_RED_TXT);
+					printMsg(ERROR_SEND_MSG_FORMAT);
+					printMsg(COLOR_DEFAULT_TXT);
+					free(concat_args);
+					return (ERROR_CMD_ARGS);
+				}
+			} else {
+			    // print error msg
+				printMsg(COLOR_RED_TXT);
+				printMsg(ERROR_SEND_MSG_ARGS);
+				printMsg(COLOR_DEFAULT_TXT);
+		        free(concat_args);
+				return (ERROR_CMD_ARGS);
+			}
+
 		    free(concat_args);
 		    return (IS_SEND_MSG_CMD);
-		} else if ((0 == strcasecmp(concat_args, SEND_FILE_CMD)) && (n_args == SEND_FILE_N_ARGS)) {
-		    free(concat_args);
+		} else if (0 == strcasecmp(concat_args, SEND_FILE_CMD)) {
+		    if (n_args != SEND_FILE_N_ARGS) {
+			    // print error msg
+				printMsg(COLOR_RED_TXT);
+				printMsg(ERROR_SEND_FILE_ARGS);
+				printMsg(COLOR_DEFAULT_TXT);
+		        free(concat_args);
+				return (ERROR_CMD_ARGS);
+			}
+		    
+			free(concat_args);
 		    return (IS_SEND_FILE_CMD);
 		} else {
 		    free(concat_args);
@@ -171,7 +222,7 @@ int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar) {
 				if (IS_NOT_CUSTOM_CMD == cmd_id) {
 				    // execute as Linux command
 				    execl("/bin/sh", "sh", "-c", user_input, (char *) NULL);
-				} else {
+				} else if (ERROR_CMD_ARGS != cmd_id) {
 				    // execute custom command
 					executeCustomCommand(cmd_id);
 					if (cmd_id == IS_EXIT_CMD) {
