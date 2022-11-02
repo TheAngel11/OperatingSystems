@@ -15,7 +15,7 @@
 *          in: delimiter = char marking where to stop reading
 * @Return: Returns a string.
 *********************************************************************/
-char * readUntil(int fd, char delimiter) {
+char * SHAREDFUNCTIONS_readUntil(int fd, char delimiter) {
     char *buffer = NULL;
 	char byte = delimiter + 1;
 	int i = 0, n = -1;
@@ -47,7 +47,7 @@ char * readUntil(int fd, char delimiter) {
 *						 the same string can be done.
 * @Return: Returns a string containin a part of the original string.
 *********************************************************************/
-char * splitString(char *string, char delimiter, int *pos) {
+char * SHAREDFUNCTIONS_splitString(char *string, char delimiter, int *pos) {
      char *output = (char *) malloc (sizeof(char));
 	 int i = 0;
 
@@ -80,7 +80,7 @@ char * splitString(char *string, char delimiter, int *pos) {
 *          in/out: dest = string where to copy source
 * @Return: ----
 ***********************************************************************/
-void strCopy(char *source, char *dest) {
+void SHAREDFUNCTIONS_strCopy(char *source, char *dest) {
     int i = 0;
 
     for (i = 0; i < (int) strlen(source); i++) {
@@ -96,7 +96,7 @@ void strCopy(char *source, char *dest) {
 *          in: unwanted = char we want to remove
 * @Return: ----
 ***********************************************************************/
-char * removeChar(char *string, char unwanted) {
+char * SHAREDFUNCTIONS_removeChar(char *string, char unwanted) {
     char *output = (char *) malloc (sizeof(char));
 	int i = 0, j = 0;
 
@@ -121,7 +121,7 @@ char * removeChar(char *string, char unwanted) {
 *                                iluvatarSon
 * @Return: ----
 ***********************************************************************/
-void freeIluvatarSon(IluvatarSon *iluvatarSon) {
+void SHAREDFUNCTIONS_freeIluvatarSon(IluvatarSon *iluvatarSon) {
     if (NULL != iluvatarSon->username) {
 	    free(iluvatarSon->username);
 		iluvatarSon->username = NULL;

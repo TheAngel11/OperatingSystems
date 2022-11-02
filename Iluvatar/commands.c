@@ -29,7 +29,7 @@ int getCmdArgs(char *input, char ***args) {
 	}
 
 	while (i < (int) strlen(input)) {
-	    (*args)[n_args] = splitString(input, ' ', &i);
+	    (*args)[n_args] = SHAREDFUNCTIONS_splitString(input, ' ', &i);
 		n_args++;
 		if (i < (int) strlen(input)) {
 		    (*args) = (char **) realloc (*args, sizeof(char *) * (n_args + 1));
@@ -147,7 +147,7 @@ void freeMemCmd(char ***args, int *n_args) {
 * @Params: in: user_input = entire command (with args) entered by user
 * @Return: 0 if EXIT command entered, otherwise 1.
 *********************************************************************/
-int executeCommand(char *user_input, IluvatarSon *iluvatar) {
+int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar) {
     char **command = NULL;
 	int n_args = 0, cmd_id = 0;
 	int pid = -1, status = 0;
@@ -177,14 +177,14 @@ int executeCommand(char *user_input, IluvatarSon *iluvatar) {
 					if (cmd_id == IS_EXIT_CMD) {
 					    freeMemCmd(&command, &n_args);
 						free(user_input);
-						freeIluvatarSon(iluvatar);
+						SHAREDFUNCTIONS_freeIluvatarSon(iluvatar);
 						exit(IS_EXIT_CMD);
 					}
 				}
 
 				// free mem
 				freeMemCmd(&command, &n_args);
-				freeIluvatarSon(iluvatar);
+				SHAREDFUNCTIONS_freeIluvatarSon(iluvatar);
 				free(user_input);
 				exit(0);
 				break;

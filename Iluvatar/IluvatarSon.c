@@ -28,10 +28,11 @@ char *iluvatar_command = NULL;
  @Return: ----
 *********************************************************************/
 void sigintHandler() {
-    freeIluvatarSon(&iluvatarSon);
+    SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
 	if (NULL != iluvatar_command) {
 	    free(iluvatar_command);
 	}
+	printMsg(COLOR_DEFAULT_TXT);
 	
 	signal(SIGINT, SIG_DFL);
 	raise(SIGINT);
@@ -67,21 +68,21 @@ int readIluvatarSon(char *filename, IluvatarSon *iluvatar) {
 	int fd = open(filename, O_RDONLY);
 
 	if (fd > 0) {
-	    iluvatar->username = readUntil(fd, END_OF_LINE);
+	    iluvatar->username = SHAREDFUNCTIONS_readUntil(fd, END_OF_LINE);
 	    // check name
-		iluvatar->username = removeChar(iluvatar->username, GPC_DATA_SEPARATOR);
+		iluvatar->username = SHAREDFUNCTIONS_removeChar(iluvatar->username, GPC_DATA_SEPARATOR);
 		// directory
-		iluvatar->directory = readUntil(fd, END_OF_LINE);
+		iluvatar->directory = SHAREDFUNCTIONS_readUntil(fd, END_OF_LINE);
 		// Arda IP
-		iluvatar->arda_ip_address = readUntil(fd, END_OF_LINE);
+		iluvatar->arda_ip_address = SHAREDFUNCTIONS_readUntil(fd, END_OF_LINE);
 	    // Arda port
-		buffer = readUntil(fd, END_OF_LINE);
+		buffer = SHAREDFUNCTIONS_readUntil(fd, END_OF_LINE);
 		iluvatar->arda_port = atoi(buffer);
 		free(buffer);
 		// Iluvatar IP
-	    iluvatar->ip_address = readUntil(fd, END_OF_LINE);
+	    iluvatar->ip_address = SHAREDFUNCTIONS_readUntil(fd, END_OF_LINE);
 	    // Iluvatar port
-		buffer = readUntil(fd, END_OF_LINE);
+		buffer = SHAREDFUNCTIONS_readUntil(fd, END_OF_LINE);
 		iluvatar->port = atoi(buffer);
 		free(buffer);
 		// no errors
@@ -110,9 +111,9 @@ int main(int argc, char* argv[]) {
 	// check args
 	if (MIN_N_ARGS > argc) {
 	    // error
-		asprintf(&buffer, ERROR_N_ARGS_MSG, COLOR_RED_TXT);
-		printMsg(buffer);
-		free(buffer);
+		printMsg(COLOR_RED_TXT);
+		printMsg(ERROR_N_ARGS_MSG);
+		printMsg(COLOR_DEFAULT_TXT);
 	} else {
 	    // read input file
 		read_ok = readIluvatarSon(argv[1], &iluvatarSon);
@@ -123,7 +124,8 @@ int main(int argc, char* argv[]) {
 			asprintf(&buffer, ERROR_OPENING_FILE, argv[1]);
 			printMsg(buffer);
 			free(buffer);
-			freeIluvatarSon(&iluvatarSon);
+			printMsg(COLOR_DEFAULT_TXT);
+			SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
 			return (0);
 		}
 
@@ -139,10 +141,10 @@ int main(int argc, char* argv[]) {
 		    printMsg(buffer);
 		    free(buffer);
 		    // get command
-			command = readUntil(STDIN_FILENO, CMD_END_BYTE);
+			command = SHAREDFUNCTIONS_readUntil(STDIN_FILENO, CMD_END_BYTE);
 		    printMsg(COLOR_DEFAULT_TXT);
 		    // execute command
-		    exit_program = executeCommand(command, &iluvatarSon);
+		    exit_program = COMMANDS_executeCommand(command, &iluvatarSon);
 
 		    // free mem
 		    if (NULL != command) {
@@ -151,7 +153,7 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-    freeIluvatarSon(&iluvatarSon);
+    SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
 
 	return (0);
 }

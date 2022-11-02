@@ -38,6 +38,6 @@
 #define IS_EXIT_CMD				5
 #define IS_NOT_CUSTOM_CMD		0
 
-int executeCommand(char *user_input, IluvatarSon *iluvatar);
+int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar);
 
 #endif

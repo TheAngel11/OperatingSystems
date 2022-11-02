@@ -10,14 +10,13 @@
 #include "definitions.h"
 
 /* Messages */
-#define ERROR_N_ARGS_MSG	     "%sERROR: Not enough arguments\n"
-#define ERROR_OPEN_FILE_MSG	     "%sERROR: File could not be opened\n"
+#define ERROR_N_ARGS_MSG	     "ERROR: Not enough arguments\n"
 
 /* Constants */
 #define READ_FILE_OK             0
 #define READ_FILE_KO             -1
 
-#define printMsg(x) write(0, x, strlen(x))
+#define printMsg(x) write(1, x, strlen(x))
 
 /*********************************************************************
 * @Purpose: Read a string from a file descriptor, stopping at a given
@@ -26,7 +25,7 @@
 *          in: delimiter = char marking where to stop reading
 * @Return: Returns a string.
 *********************************************************************/
-char * readUntil(int fd, char delimiter);
+char * SHAREDFUNCTIONS_readUntil(int fd, char delimiter);
 
 /*********************************************************************
 * @Purpose: Splits a string given a char.
@@ -38,7 +37,7 @@ char * readUntil(int fd, char delimiter);
 *						 the same string can be done.
 * @Return: Returns a string containin a part of the original string.
 *********************************************************************/
-char * splitString(char *string, char delimiter, int *pos);
+char * SHAREDFUNCTIONS_splitString(char *string, char delimiter, int *pos);
 
 /**********************************************************************
 * @Purpose: Copies a string.
@@ -46,7 +45,7 @@ char * splitString(char *string, char delimiter, int *pos);
 *          in/out: dest = string where to copy source
 * @Return: ----
 *********************************************************************/
-void strCopy(char *source, char *dest);
+void SHAREDFUNCTIONS_strCopy(char *source, char *dest);
 
 /**********************************************************************
 * @Purpose: Remove a char repeatedly from a string.
@@ -54,7 +53,7 @@ void strCopy(char *source, char *dest);
 *          in: unwanted = char we want to remove
 * @Return: ----
 ***********************************************************************/
-char * removeChar(char *string, char unwanted);
+char * SHAREDFUNCTIONS_removeChar(char *string, char unwanted);
 
 /**********************************************************************
 * @Purpose: Frees dynamic memory allocated for an IluvatarSon.
@@ -62,6 +61,6 @@ char * removeChar(char *string, char unwanted);
 *                                iluvatarSon
 * @Return: ----
 ***********************************************************************/
-void freeIluvatarSon(IluvatarSon *iluvatarSon);
+void SHAREDFUNCTIONS_freeIluvatarSon(IluvatarSon *iluvatarSon);
 
 #endif
