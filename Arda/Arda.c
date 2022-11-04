@@ -90,7 +90,6 @@ int readArda(char *filename, Arda *arda) {
 int main(int argc, char** argv){
     int clientFD = -1;
     int read_ok = ARDA_KO;
-    char *buffer = NULL;
     struct sockaddr_in server;
 
     arda = newArda();
@@ -165,9 +164,11 @@ int main(int argc, char** argv){
             // Connection request
 
             // User list petition
-
+            
             // Exit petition
+
         }
+
     }
 
     return(0);

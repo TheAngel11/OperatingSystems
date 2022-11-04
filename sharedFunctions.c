@@ -155,3 +155,11 @@ void freeArda(Arda *arda) {
 		arda->directory = NULL;
 	}
 }
+
+
+char* sendTrama(int type, char* header, int length, char* data) {
+	char *buffer;
+
+
+	return buffer;
+}
