@@ -129,7 +129,7 @@ void SHAREDFUNCTIONS_freeIluvatarSon(IluvatarSon *iluvatarSon) {
 * @Params: in/out: arda = Arda pointer referencing the server Arda      
 * @Return: ----
 ***********************************************************************/
-void freeArda(Arda *arda) {
+void SHAREDFUNCTIONS_freeArda(Arda *arda) {
 	if (NULL != arda->ip_address) {
         free(arda->ip_address);
 		arda->ip_address = NULL;
@@ -138,12 +138,4 @@ void freeArda(Arda *arda) {
         free(arda->directory);
 		arda->directory = NULL;
 	}
-}
-
-
-char* sendTrama(int type, char* header, int length, char* data) {
-	char *buffer;
-
-
-	return buffer;
 }
