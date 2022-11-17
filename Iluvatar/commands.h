@@ -24,10 +24,12 @@
 #define CMD_MSG_SEPARATOR		'"'
 
 /* Messages */
-#define UNKNOWN_CMD_MSG			"Unknown command\n"
-#define ERROR_SEND_MSG_FORMAT	"ERROR: Missing message separators\n"
-#define ERROR_SEND_MSG_ARGS		"ERROR: \"SEND MSG\" requires a user and a message\n"
-#define ERROR_SEND_FILE_ARGS	"ERROR: \"SEND FILE\" requires a user and a file\n"
+#define UNKNOWN_CMD_MSG				"Unknown command\n"
+#define ERROR_SEND_MSG_FORMAT		"ERROR: Missing message separators (\")\n"
+#define ERROR_SEND_MSG_LESS_ARGS	"ERROR: \"SEND MSG\" requires a user and a message\n"
+#define ERROR_SEND_MSG_MORE_ARGS	"ERROR: \"SEND MSG\" has too many arguments\n"
+#define ERROR_SEND_FILE_LESS_ARGS	"ERROR: \"SEND FILE\" requires a user and a file\n"
+#define ERROR_SEND_FILE_MORE_ARGS	"ERROR: \"SEND FILE\" has too many arguments\n"
 
 /* Number of required args for custom command */
 #define UPDATE_USERS_N_ARGS		2

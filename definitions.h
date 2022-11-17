@@ -4,6 +4,9 @@
 #include <string.h>
 #include <stdlib.h>
 
+/* Messages */
+#define ERROR_N_LESS_ARGS_MSG	 "ERROR: Missing configuration file (not enough arguments)\n"
+#define ERROR_N_MORE_ARGS_MSG	 "ERROR: Too many arguments\n"
 #define ERROR_OPENING_FILE		"ERROR: File %s could not be opened\n"
 #define ERROR_CREATING_CHILD 	"ERROR: Child could not be created\n"
 

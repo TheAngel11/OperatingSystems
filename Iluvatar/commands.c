@@ -4,7 +4,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 02/11/2022
+* @Last change: 17/11/2022
 *********************************************************************/
 #include "commands.h"
 
@@ -39,10 +39,14 @@ int getCmdArgs(char *input, char ***args) {
 			strcat((*args)[n_args], tmp_arg);
 			free(tmp_arg);
 			tmp_arg = NULL;
-			asprintf(&tmp_arg, "%c", CMD_MSG_SEPARATOR);
-			strcat((*args)[n_args], tmp_arg);
-			free(tmp_arg);
-			tmp_arg = NULL;
+			if ('"' == input[i - 1]) {
+			    asprintf(&tmp_arg, "%c", CMD_MSG_SEPARATOR);
+				strcat((*args)[n_args], tmp_arg);
+				free(tmp_arg);
+				tmp_arg = NULL;
+			}/* else {
+			    asprintf(&tmp_arg, "%c", CMD_MSG_SEPARATOR);
+			}*/
 			n_args++;
 		} else {
 		    (*args)[n_args] = SHAREDFUNCTIONS_splitString(input, ' ', &i);
@@ -60,6 +64,9 @@ int getCmdArgs(char *input, char ***args) {
 		}
 	}
 
+	(*args) = (char **) realloc (*args, sizeof(char *) * (n_args + 2));
+	(*args)[n_args + 1] = NULL;
+
 	return (n_args);
 }
 
@@ -71,7 +78,7 @@ int getCmdArgs(char *input, char ***args) {
 * @Return: Returns the ID of the custom command or IS_NOT_CUSTOM_CMD.
 *********************************************************************/
 int identifyCommand(char **args, int n_args) {
-    char * concat_args = NULL;
+    char *concat_args = NULL;
 
 	if (EXIT_N_ARGS == n_args) {
 	    if (0 == strcasecmp(args[0], EXIT_CMD)) {
@@ -105,9 +112,15 @@ int identifyCommand(char **args, int n_args) {
 			} else {
 			    // print error msg
 				printMsg(COLOR_RED_TXT);
-				printMsg(ERROR_SEND_MSG_ARGS);
+				
+				if (n_args < SEND_MSG_N_ARGS) {
+				    printMsg(ERROR_SEND_MSG_LESS_ARGS);
+				} else {
+				    printMsg(ERROR_SEND_MSG_MORE_ARGS);
+				}
+
 				printMsg(COLOR_DEFAULT_TXT);
-		        free(concat_args);
+				free(concat_args);
 				return (ERROR_CMD_ARGS);
 			}
 
@@ -117,7 +130,13 @@ int identifyCommand(char **args, int n_args) {
 		    if (n_args != SEND_FILE_N_ARGS) {
 			    // print error msg
 				printMsg(COLOR_RED_TXT);
-				printMsg(ERROR_SEND_FILE_ARGS);
+
+				if (n_args < SEND_FILE_N_ARGS) {
+				    printMsg(ERROR_SEND_FILE_LESS_ARGS);
+				} else {
+				    printMsg(ERROR_SEND_FILE_MORE_ARGS);
+				}
+
 				printMsg(COLOR_DEFAULT_TXT);
 		        free(concat_args);
 				return (ERROR_CMD_ARGS);
@@ -228,7 +247,8 @@ int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar) {
 				break;
 			case 0:
 				// execute as Linux command
-				execl("/bin/sh", "sh", "-c", user_input, (char *) NULL);
+				//execl("/bin/sh", "sh", "-c", user_input, (char *) NULL);
+				execvp(command[0], command);
 
 				// free mem
 				freeMemCmd(&command, &n_args);

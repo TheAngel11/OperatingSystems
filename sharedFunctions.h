@@ -9,9 +9,6 @@
 
 #include "definitions.h"
 
-/* Messages */
-#define ERROR_N_ARGS_MSG	     "ERROR: Not enough arguments\n"
-
 /* Constants */
 #define READ_FILE_OK             0
 #define READ_FILE_KO             -1

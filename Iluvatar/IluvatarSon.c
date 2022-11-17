@@ -109,10 +109,16 @@ int main(int argc, char* argv[]) {
 	signal(SIGINT, sigintHandler);
 	
 	// check args
-	if (MIN_N_ARGS > argc) {
+	if (MIN_N_ARGS != argc) {
 	    // error
 		printMsg(COLOR_RED_TXT);
-		printMsg(ERROR_N_ARGS_MSG);
+		
+		if (MIN_N_ARGS > argc) {
+		    printMsg(ERROR_N_LESS_ARGS_MSG);
+		} else {
+		    printMsg(ERROR_N_MORE_ARGS_MSG);
+		}
+
 		printMsg(COLOR_DEFAULT_TXT);
 	} else {
 	    // read input file
