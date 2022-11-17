@@ -59,4 +59,14 @@ void SHAREDFUNCTIONS_freeIluvatarSon(IluvatarSon *iluvatarSon);
 ***********************************************************************/
 void SHAREDFUNCTIONS_freeArda(Arda *arda);
 
+/**********************************************************************
+* @Purpose: Reads the network frame that the client have sent.
+* @Params: in: fd 	= file descriptor of the client
+*          in/out: type = type of the frame passed by reference
+*          in/out: header = header of the frame passed by reference
+*          in/out: data = data of the frame passed by reference     
+* @Return: ----
+***********************************************************************/
+void SHAREDFUNCTIONS_readFrame(int fd, int *type, char *header, char *data);
+
 #endif

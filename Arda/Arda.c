@@ -139,7 +139,7 @@ int main(int argc, char** argv){
         printMsg(ERROR_BINDING_SOCKET_MSG);
         printMsg(COLOR_DEFAULT_TXT);
         //TODO: Deixar tot estable abans de fer el return
-         return -1;
+        return -1;
     }
 
     // Listening (Transforms the server active socket into a passive socket)
@@ -161,11 +161,17 @@ int main(int argc, char** argv){
             printMsg(ERROR_ACCEPTING_MSG);
             printMsg(COLOR_DEFAULT_TXT);
         } else {
+            
             // Connection request
-
+            //TODO: Afegir a la llista de clients
+            //TODO: Creacio de thread
+            
             // User list petition
+            //TODO: Enviar la llista de usuaris
             
             // Exit petition
+            //TODO: Eliminar de la llista de clients
+            //TODO: Tancar el thread
 
         }
 

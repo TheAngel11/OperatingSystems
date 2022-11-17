@@ -48,30 +48,30 @@ char * SHAREDFUNCTIONS_readUntil(int fd, char delimiter) {
 * @Return: Returns a string containin a part of the original string.
 *********************************************************************/
 char * SHAREDFUNCTIONS_splitString(char *string, char delimiter, int *pos) {
-     char *output = (char *) malloc (sizeof(char));
-	 int i = 0;
+	char *output = (char *) malloc (sizeof(char));
+	int i = 0;
 
-	 if (NULL == output) {
-	     return NULL;
-	 }
+	if (NULL == output) {
+		return NULL;
+	}
 
-	 while (*pos < (int) strlen(string)) {
-	     if (string[*pos] == delimiter) {
-		     output[i] = '\0';
-			 // skip delimiter
-			 (*pos)++;
-			 return (output);
-		 }
+	while (*pos < (int) strlen(string)) {
+		if (string[*pos] == delimiter) {
+			output[i] = '\0';
+			// skip delimiter
+			(*pos)++;
+			return (output);
+		}
 
-		 output[i] = string[*pos];
-		 output = (char *) realloc (output, sizeof(char) * (i + 2));		 
-		 (*pos)++;
-		 i++;
-	 }
+		output[i] = string[*pos];
+		output = (char *) realloc (output, sizeof(char) * (i + 2));		 
+		(*pos)++;
+		i++;
+	}
 
-	 output[i] = '\0';
+	output[i] = '\0';
 
-	 return (output);
+	return (output);
 }
 
 /**********************************************************************
@@ -138,4 +138,42 @@ void SHAREDFUNCTIONS_freeArda(Arda *arda) {
         free(arda->directory);
 		arda->directory = NULL;
 	}
+}
+
+/**********************************************************************
+* @Purpose: Reads the network frame that the client have sent.
+* @Params: in: fd 	= file descriptor of the client
+*          in/out: type = type of the frame passed by reference
+*          in/out: header = header of the frame passed by reference
+*          in/out: data = data of the frame passed by reference     
+* @Return: ----
+***********************************************************************/
+void SHAREDFUNCTIONS_readFrame(int fd, int *type, char *header, char *data) {
+	char *buffer = NULL;
+	char byte;
+	int length = 0;
+
+	// read type (1 byte)
+	read(fd, &byte, sizeof(char));
+	*type = atoi(byte);
+
+	// read header
+	buffer = SHAREDFUNCTIONS_readUntil(fd, ']');
+	
+	// removes first character
+	buffer = buffer + 1; 
+	// removes last character
+	buffer[strlen(buffer) - 1] = '\0'; 
+	strcpy(header, buffer);
+	free(buffer);
+
+	// read lenght (2 bytes)
+	read(fd, buffer, sizeof(char) * 2);	//TODO: mirar si la lenght no s'ha de parsejar aixi
+	lenght = atoi(buffer);
+	free(buffer);
+
+	// read data (lenght bytes)
+	read(fd, buffer, sizeof(char) * lenght);
+	strcpy(data, buffer);
+	free(buffer);
 }
