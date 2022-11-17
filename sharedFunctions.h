@@ -57,6 +57,6 @@ void SHAREDFUNCTIONS_freeIluvatarSon(IluvatarSon *iluvatarSon);
 * @Params: in/out: arda = Arda pointer referencing the server Arda      
 * @Return: ----
 ***********************************************************************/
-void freeArda(Arda *arda);
+void SHAREDFUNCTIONS_freeArda(Arda *arda);
 
 #endif
