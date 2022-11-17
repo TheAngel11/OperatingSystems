@@ -37,14 +37,6 @@ char * SHAREDFUNCTIONS_readUntil(int fd, char delimiter);
 char * SHAREDFUNCTIONS_splitString(char *string, char delimiter, int *pos);
 
 /**********************************************************************
-* @Purpose: Copies a string.
-* @Params: in: source = string to copy
-*          in/out: dest = string where to copy source
-* @Return: ----
-*********************************************************************/
-void SHAREDFUNCTIONS_strCopy(char *source, char *dest);
-
-/**********************************************************************
 * @Purpose: Remove a char repeatedly from a string.
 * @Params: in/out: string = string to modify
 *          in: unwanted = char we want to remove

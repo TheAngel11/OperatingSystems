@@ -39,14 +39,14 @@ int getCmdArgs(char *input, char ***args) {
 			strcat((*args)[n_args], tmp_arg);
 			free(tmp_arg);
 			tmp_arg = NULL;
+			// add last " if it was in original input
 			if ('"' == input[i - 1]) {
 			    asprintf(&tmp_arg, "%c", CMD_MSG_SEPARATOR);
 				strcat((*args)[n_args], tmp_arg);
 				free(tmp_arg);
 				tmp_arg = NULL;
-			}/* else {
-			    asprintf(&tmp_arg, "%c", CMD_MSG_SEPARATOR);
-			}*/
+			}
+			
 			n_args++;
 		} else {
 		    (*args)[n_args] = SHAREDFUNCTIONS_splitString(input, ' ', &i);
@@ -64,8 +64,8 @@ int getCmdArgs(char *input, char ***args) {
 		}
 	}
 
-	(*args) = (char **) realloc (*args, sizeof(char *) * (n_args + 2));
-	(*args)[n_args + 1] = NULL;
+	(*args) = (char **) realloc (*args, sizeof(char *) * (n_args + 1));
+	(*args)[n_args] = NULL;
 
 	return (n_args);
 }
@@ -247,14 +247,13 @@ int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar) {
 				break;
 			case 0:
 				// execute as Linux command
-				//execl("/bin/sh", "sh", "-c", user_input, (char *) NULL);
-				execvp(command[0], command);
+				status = execvp(command[0], command);
 
 				// free mem
 				freeMemCmd(&command, &n_args);
 				SHAREDFUNCTIONS_freeIluvatarSon(iluvatar);
 				free(user_input);
-				exit(0);
+				exit(status);
 				break;
 			default:
 			    wait(&status);

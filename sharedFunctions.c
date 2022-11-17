@@ -4,7 +4,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 18/10/2022
-* @Last change: 23/10/2022
+* @Last change: 17/11/2022
 *********************************************************************/
 #include "sharedFunctions.h"
 
@@ -72,22 +72,6 @@ char * SHAREDFUNCTIONS_splitString(char *string, char delimiter, int *pos) {
 	 output[i] = '\0';
 
 	 return (output);
-}
-
-/**********************************************************************
-* @Purpose: Copies a string.
-* @Params: in: source = string to copy
-*          in/out: dest = string where to copy source
-* @Return: ----
-***********************************************************************/
-void SHAREDFUNCTIONS_strCopy(char *source, char *dest) {
-    int i = 0;
-
-    for (i = 0; i < (int) strlen(source); i++) {
-        dest[i] = source[i];
-    }
-
-    dest[i] = '\0';
 }
 
 /**********************************************************************
