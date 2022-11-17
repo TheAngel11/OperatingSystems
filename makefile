@@ -6,7 +6,7 @@ sharedFunctions.o: sharedFunctions.c sharedFunctions.h
 IluvatarSon.o: Iluvatar/IluvatarSon.c definitions.h
 	gcc -c -Wall -Wextra Iluvatar/IluvatarSon.c
 IluvatarSon: IluvatarSon.o commands.o sharedFunctions.o
-	gcc IluvatarSon.o commands.o sharedFunctions.o -o IluvatarSon
+	gcc IluvatarSon.o commands.o sharedFunctions.o -o IluvatarSon -Wall -Wextra
 clean:
 	rm *.o
 	rm IluvatarSon
