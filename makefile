@@ -14,5 +14,6 @@ IluvatarSon: IluvatarSon.o commands.o sharedFunctions.o
 Arda: Arda.o sharedFunctions.o bidirectionallist.o
 	gcc Arda.o sharedFunctions.o bidirectionallist.o -o Arda -Wall -Wextra -lpthread
 clean:
-	rm *.o
-	rm IluvatarSon
+	rm -f *.o
+	rm -f IluvatarSon
+	rm -f Arda
