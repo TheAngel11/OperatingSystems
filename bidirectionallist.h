@@ -23,6 +23,10 @@
 
 // Libraries
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+
+#include "definitions.h"
 
 // Constants to manage the list's error codes.
 #define LIST_NO_ERROR 0
@@ -36,10 +40,10 @@
 // Data Types
 typedef struct {
 	char *username;
-	char *ip;
+	char *ip_network;
 	int port;
-	char *network;
 	pid_t pid;
+	int clientFD;
 } Element;
 
 /*
@@ -90,4 +94,3 @@ void 	BIDIRECTIONALLIST_destroy(BidirectionalList * list);
 int		BIDIRECTIONALLIST_getErrorCode(BidirectionalList list);
 
 #endif
-

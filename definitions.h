@@ -7,8 +7,8 @@
 /* Messages */
 #define ERROR_N_LESS_ARGS_MSG	 "ERROR: Missing configuration file (not enough arguments)\n"
 #define ERROR_N_MORE_ARGS_MSG	 "ERROR: Too many arguments\n"
-#define ERROR_OPENING_FILE		"ERROR: File %s could not be opened\n"
-#define ERROR_CREATING_CHILD 	"ERROR: Child could not be created\n"
+#define ERROR_OPENING_FILE		 "ERROR: File %s could not be opened\n"
+#define ERROR_CREATING_CHILD 	 "ERROR: Child could not be created\n"
 
 #define COLOR_DEFAULT_TXT		"\033[0m"
 #define COLOR_CLI_TXT			"\033[1;36m"
@@ -17,6 +17,7 @@
 
 /* General Protocol Communication (GPC) constants */
 #define GPC_DATA_SEPARATOR		'&'
+#define GPC_DATA_SEPARATOR_STR	"&"
 
 typedef struct {
     char *username;

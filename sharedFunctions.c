@@ -142,7 +142,7 @@ void SHAREDFUNCTIONS_freeArda(Arda *arda) {
 
 /**********************************************************************
 * @Purpose: Reads the network frame that the client have sent.
-* @Params: in: fd 	= file descriptor of the client
+* @Params: in: fd 	= the file descriptor we want to read from 
 *          in/out: type = type of the frame passed by reference
 *          in/out: header = header of the frame passed by reference
 *          in/out: data = data of the frame passed by reference     
@@ -155,8 +155,31 @@ void SHAREDFUNCTIONS_readFrame(int fd, int *type, char *header, char *data) {
 
 	// read type (1 byte)
 	read(fd, &byte, sizeof(char));
-	*type = atoi(byte);
 
+	switch (byte) {
+	case 'A':
+		*type = 10;
+		break;
+	case 'B':
+		*type = 11;
+		break;
+	case 'C':
+		*type = 12;
+		break;		
+	case 'D':
+		*type = 13;
+		break;		
+	case 'E':
+		*type = 14;
+		break;		
+	case 'F':
+		*type = 15;
+		break;
+	default:
+		*type = byte - '0';
+		break;
+	}
+	
 	// read header
 	buffer = SHAREDFUNCTIONS_readUntil(fd, ']');
 	
@@ -164,16 +187,107 @@ void SHAREDFUNCTIONS_readFrame(int fd, int *type, char *header, char *data) {
 	buffer = buffer + 1; 
 	// removes last character
 	buffer[strlen(buffer) - 1] = '\0'; 
+	
+	header = (char *) malloc (sizeof(char) * (strlen(buffer) + 1));
 	strcpy(header, buffer);
 	free(buffer);
 
 	// read lenght (2 bytes)
-	read(fd, buffer, sizeof(char) * 2);	//TODO: mirar si la lenght no s'ha de parsejar aixi
-	lenght = atoi(buffer);
+	read(fd, buffer, sizeof(char) * 2);
+	length = atoi(buffer);
 	free(buffer);
 
 	// read data (lenght bytes)
-	read(fd, buffer, sizeof(char) * lenght);
+	read(fd, buffer, sizeof(char) * length);
+
+	data = (char *) malloc (sizeof(char) * (strlen(buffer) + 1));
 	strcpy(data, buffer);
 	free(buffer);
 }
+
+/**********************************************************************
+ * @Purpose: Reads from a file descriptor until a given char is found.
+ * @Params: in: fd = the file descriptor we want to read from 
+ * 			in: type = the type of the frame
+ * 			in/out: header = header of the frame passed by reference
+ * 			in/out: data = data of the frame passed by reference
+ * @Return: ----
+ * ********************************************************************/
+void SHAREDFUNCTIONS_writeFrame(int fd, int type, char *header, char *data) {
+	char *buffer = NULL;
+	char *frame = NULL;
+	int length = 0;
+
+	// write type (1 byte)
+	switch (type) {
+	case 10:
+		buffer = "A";
+		break;
+	case 11:
+		buffer = "B";
+		break;
+	case 12:
+		buffer = "C";
+		break;		
+	case 13:
+		buffer = "D";
+		break;		
+	case 14:
+		buffer = "E";
+		break;		
+	case 15:
+		buffer = "F";
+		break;
+	default:
+		asprintf(&buffer, "%d", type);
+		break;
+	}
+	
+	strcpy(frame, buffer);
+
+	if(buffer != NULL) {
+		free(buffer);
+	}
+
+	// write header
+	asprintf(&buffer, "[%s]", header);	
+	strcat(frame, buffer);
+	free(buffer);
+
+	// write lenght (2 bytes)
+	if(data != NULL) {
+		length = strlen(data);
+		asprintf(&buffer, "%d", length);
+		strcat(frame, buffer);
+		free(buffer);
+		// write data (lenght bytes)
+		strcat(frame, data);
+	} else {
+		asprintf(&buffer, "%d", length);
+		strcat(frame, buffer);
+		free(buffer);
+	}
+
+	// write frame to the client fd
+	write(fd, frame, strlen(frame));
+}
+
+/**********************************************************************
+ * @Purpose: Parses the data field of a frame
+ * @Params: in/out: data = the data field of the frame
+ * 			in/out: username = the username of the client passed by reference
+ * 			in/out: ip = the ip address of the client passed by reference
+ * 			in/out: port = the port of the client passed by reference
+ *  		in/out: pid = the pid of the client passed by reference
+ * @Return: ----
+ * ********************************************************************/
+void SHAREDFUNCTIONS_parseDataFieldConnection(char *data, char *username, char *ip, int *port, pid_t *pid) {
+	printf("username: %s", username);	// DEBUGGING PURPOSES
+	printf("ip: %s", ip);				// DEBUGGING PURPOSES
+	username = strtok(data, GPC_DATA_SEPARATOR_STR);
+	ip = strtok(NULL, GPC_DATA_SEPARATOR_STR);
+	*port = atoi(strtok(NULL, GPC_DATA_SEPARATOR_STR));
+	*pid = atoi(strtok(NULL, GPC_DATA_SEPARATOR_STR));	
+}
+
+
