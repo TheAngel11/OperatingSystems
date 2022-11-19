@@ -179,4 +179,8 @@ void BIDIRECTIONALLIST_destroy(BidirectionalList * list) {
 	list->poi = NULL;
 }
 
+int BIDIRECTIONALLIST_getErrorCode(BidirectionalList list) {
+	return list.error;
+}
+
 

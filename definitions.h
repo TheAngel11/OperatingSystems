@@ -16,9 +16,13 @@
 #define END_OF_LINE		    	'\n'
 
 /* General Protocol Communication (GPC) constants */
-#define GPC_DATA_SEPARATOR		'&'
-#define GPC_DATA_SEPARATOR_STR	"&"
-
+#define GPC_DATA_SEPARATOR		    '&'
+#define GPC_DATA_SEPARATOR_STR	    "&"
+#define GPC_DATA_SEPARATOR_USR_STR	"#"
+#define CONOK                       "CONOK"
+#define CONKO                       "CONKO"
+#define LIST_RESPONSE               "LIST_RESPONSE"
+#define UNKNOWN                     "UNKNOWN"
 typedef struct {
     char *username;
 	char *directory;
