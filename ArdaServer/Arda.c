@@ -14,10 +14,10 @@
 #include "../bidirectionallist.h"
 
 #define DISCONNECT_ARDA_MSG             "Disconnecting Arda from all Iluvatar’s children\n"
-#define CLOSING_ARDA_MSG                "Closing server\n"
-#define WELCOME_MSG                     "ARDA SERVER\n"
+#define CLOSING_ARDA_MSG                "Closing server\n\n"
+#define WELCOME_MSG                     "\nARDA SERVER\n"
 #define READING_FILE_MSG                "Reading configuration file\n"
-#define WAITING_CONNECTIONS_MSG         "Waiting for connections...\n"
+#define WAITING_CONNECTIONS_MSG         "Waiting for connections...\n\n"
 #define ERROR_CREATING_SOCKET_MSG       "ERROR: Arda could not create the server socket\n"
 #define ERROR_BINDING_SOCKET_MSG        "ERROR: Arda could not bind the server socket\n"
 #define ERROR_LISTENING_MSG             "ERROR: Arda could not make the listen\n"
@@ -25,24 +25,53 @@
 #define ERROR_ACCEPTING_MSG	            "ERROR: Arda could not accept the connection request\n"
 #define ERROR_CREATING_THREAD_MSG       "ERROR: Arda could not create the thread\n"
 #define ERROR_TYPE_NOT_IMPLEMENTED_MSG  "ERROR: That type of frame has not been implemented yet\n"
-#define ARDA_OK	    0		
-#define ARDA_KO	    -1
-#define MIN_N_ARGS	2
-#define BACKLOG     10
+#define NEW_LOGIN_MSG                   "New login: %s, IP: %s, port: %d, PID %d\n"
+#define UPDATING_LIST_MSG               "Updating user's list\n"
+#define SENDING_LIST_MSG                "Sending user's list\n"
+#define RENPONSE_SENT_LIST_MSG          "Response sent\n\n"
+#define PETITION_UPDATE_MSG             "New petition: %s demands the user's list\nSending user's list to %s\n\n"
+#define PETITION_EXIT_MSG               "New exit petition: %s has left Arda\n"
+#define ARDA_OK	                        0		
+#define ARDA_KO	                        1
+#define MIN_N_ARGS	                    2
+#define BACKLOG                         10
+#define FD_NOT_FOUND                    -1
 
 Arda arda;
-int listenFD;
+int listenFD = FD_NOT_FOUND;
 BidirectionalList blist;
+
+/*********************************************************************
+ * @Purpose: Closes all the file descriptors of the clients.
+ * @Params: ----
+ * @Return: ----
+ * *********************************************************************/
+void closeAllClientFD() {
+    int clientFD;
+
+    BIDIRECTIONALLIST_goToHead(&blist);
+
+    while (BIDIRECTIONALLIST_isValid(blist)) {
+        clientFD = BIDIRECTIONALLIST_get(&blist).clientFD;
+        close(clientFD);
+        BIDIRECTIONALLIST_next(&blist);
+    } 
+}
 
 /*********************************************************************
 * @Purpose: Free memory when SIGINT received.
 * @Params: ----
 * @Return: ----
 *********************************************************************/
-void sigHandler(){
-    close(listenFD);
-    // TODO: fer un close de tots els clients fd
+void sigIntHandler(){    
+    if(listenFD != FD_NOT_FOUND){
+        close(listenFD);
+    }
+
+    closeAllClientFD(); 
+    BIDIRECTIONALLIST_destroy(&blist);
     SHAREDFUNCTIONS_freeArda(&arda);
+    
     printMsg(DISCONNECT_ARDA_MSG);
     printMsg(CLOSING_ARDA_MSG);
     signal(SIGINT, SIG_DFL);
@@ -94,7 +123,7 @@ int readArda(char *filename, Arda *arda) {
 
 /*********************************************************************
 * @Purpose: Creates the thread for the client that has connected.
-* @Params: in: fd = file descriptor of the client
+* @Params: in: c_fd = file descriptor of the client
 * @Return: ----
 *********************************************************************/
 void * threadClient(void *c_fd) {
@@ -107,6 +136,7 @@ void * threadClient(void *c_fd) {
     int port = 0;
     pid_t pid = 0;
     int checked = 0;
+    char *buffer = NULL;
     Element element;    
 
     while(1) {
@@ -128,22 +158,36 @@ void * threadClient(void *c_fd) {
                 element.pid = pid;
                 element.clientFD = clientFD;
 
+                // Printing the new login
+                asprintf(&buffer, NEW_LOGIN_MSG, username, ip, port, pid);
+                printMsg(buffer);
+                free(buffer);
+
+                printMsg(UPDATING_LIST_MSG);
                 // Adding the client to the list
                 BIDIRECTIONALLIST_addAfter(&blist, element);
-
+                
+                printMsg(SENDING_LIST_MSG);
                 // Write connexion frame
                 if (BIDIRECTIONALLIST_getErrorCode(blist) == LIST_NO_ERROR) {
                     data = SHAREDFUNCTIONS_writeDataFieldUpdate(blist);
-                    SHAREDFUNCTIONS_writeFrame(clientFD, 1, CONOK, data);       //TODO: Enviar frame posant a data tota la info dels clients
+                    SHAREDFUNCTIONS_writeFrame(clientFD, 1, CONOK, data);   
                 } else {
                     SHAREDFUNCTIONS_writeFrame(clientFD, 1, CONKO, NULL);
                 }
+                
+                printMsg(RENPONSE_SENT_LIST_MSG);
                 break;
             
             // Update list petition            
             case 2:
+                // data is the username
+                asprintf(&buffer, PETITION_UPDATE_MSG, data, data);
+                printMsg(buffer);
+                free(buffer);
+                
                 data = SHAREDFUNCTIONS_writeDataFieldUpdate(blist);
-                SHAREDFUNCTIONS_writeFrame(clientFD, 2, LIST_RESPONSE, data);       //TODO: Enviar frame posant a data tota la info dels clients
+                SHAREDFUNCTIONS_writeFrame(clientFD, 2, LIST_RESPONSE, data);     
                 break;
             
             // Types not implemented yet
@@ -155,10 +199,16 @@ void * threadClient(void *c_fd) {
 
             // Exit petition
             case 6:
+                // data is the username
+                asprintf(&buffer, PETITION_EXIT_MSG, data);
+                printMsg(buffer);
+                free(buffer);
+                
+                printMsg(UPDATING_LIST_MSG);
                 // Removing client from the list
                 BIDIRECTIONALLIST_goToHead(&blist);
                 // 1 - Searching the client
-                while(strcmp(BIDIRECTIONALLIST_get(&blist).username, element.username) != 0) {
+                while(strcmp(BIDIRECTIONALLIST_get(&blist).username, data) != 0) {
                     BIDIRECTIONALLIST_next(&blist);
                     checked = 1;
                 }
@@ -168,16 +218,17 @@ void * threadClient(void *c_fd) {
                     BIDIRECTIONALLIST_remove(&blist);
                 }
 
-                
+                printMsg(SENDING_LIST_MSG);
                 // 3 - writing the exit frame
                 if ((BIDIRECTIONALLIST_getErrorCode(blist) == LIST_NO_ERROR) && checked) {
                     SHAREDFUNCTIONS_writeFrame(clientFD, 6, CONOK, NULL);             
                 } else {
                     SHAREDFUNCTIONS_writeFrame(clientFD, 6, CONKO, NULL);
                 }             
+                printMsg(RENPONSE_SENT_LIST_MSG);
 
                 // 4 - Closing the client connection
-                close(clientFD);               
+                close(clientFD);
                 return NULL;
                 break;
             
@@ -192,21 +243,20 @@ void * threadClient(void *c_fd) {
     return NULL;
 }
 
-int main(int argc, char** argv){
-    int clientFD = -1;
+int main(int argc, char* argv[]) {
+    int clientFD = FD_NOT_FOUND;
     char *buffer = NULL;
     int read_ok = ARDA_KO;
     pthread_t thread;
     struct sockaddr_in server;
     
-    arda = newArda();
-
-    if(MIN_N_ARGS > argc){
+    if(MIN_N_ARGS > argc) {
         printMsg(COLOR_RED_TXT);
 		printMsg(ERROR_N_LESS_ARGS_MSG);
         printMsg(COLOR_DEFAULT_TXT);
         return -1;
-    } else if(MIN_N_ARGS < argc){
+
+    } else if(MIN_N_ARGS < argc) {
         printMsg(COLOR_RED_TXT);
 		printMsg(ERROR_N_MORE_ARGS_MSG);
         printMsg(COLOR_DEFAULT_TXT);
@@ -214,7 +264,9 @@ int main(int argc, char** argv){
     }
 
     // Mantaining stable the program when Ctrl + C occurs
-    signal(SIGINT, sigHandler);
+    signal(SIGINT, sigIntHandler);
+    
+    arda = newArda();
 
     printMsg(WELCOME_MSG);
     printMsg(READING_FILE_MSG);
@@ -230,11 +282,11 @@ int main(int argc, char** argv){
     }
     
     // Creating the server socket
-    if((listenFD = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0){
+    if((listenFD = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
         printMsg(COLOR_RED_TXT);
         printMsg(ERROR_CREATING_SOCKET_MSG);
         printMsg(COLOR_DEFAULT_TXT);
-        //TODO: Deixar tot estable abans de fer el return
+        SHAREDFUNCTIONS_freeArda(&arda);
         return -1;
     }
 
@@ -245,11 +297,12 @@ int main(int argc, char** argv){
     server.sin_addr.s_addr = htonl(INADDR_ANY);
 
     // Binding server socket (Assigning IP and port to the socket)
-    if (bind(listenFD, (struct sockaddr*) &server, sizeof(server)) < 0){
+    if (bind(listenFD, (struct sockaddr*) &server, sizeof(server)) < 0) {
         printMsg(COLOR_RED_TXT);
         printMsg(ERROR_BINDING_SOCKET_MSG);
         printMsg(COLOR_DEFAULT_TXT);
-        //TODO: Deixar tot estable abans de fer el return
+        SHAREDFUNCTIONS_freeArda(&arda);
+        close(listenFD);
         return -1;
     }
 
@@ -258,7 +311,8 @@ int main(int argc, char** argv){
         printMsg(COLOR_RED_TXT);
         printMsg(ERROR_LISTENING_MSG);
         printMsg(COLOR_DEFAULT_TXT);
-        //TODO: Deixar tot estable abans de fer el return
+        SHAREDFUNCTIONS_freeArda(&arda);
+        close(listenFD);
         return -1;
     }
 
@@ -270,7 +324,7 @@ int main(int argc, char** argv){
         printMsg(WAITING_CONNECTIONS_MSG);
         
         // Accept (Blocks the system until a connection request arrives)
-        if ((clientFD = accept(listenFD, (struct sockaddr*) NULL, NULL)) < 0){
+        if ((clientFD = accept(listenFD, (struct sockaddr*) NULL, NULL)) < 0) {
             printMsg(COLOR_RED_TXT);
             printMsg(ERROR_ACCEPTING_MSG);
             printMsg(COLOR_DEFAULT_TXT);
@@ -281,6 +335,10 @@ int main(int argc, char** argv){
                 printMsg(COLOR_RED_TXT);
                 printMsg(ERROR_CREATING_THREAD_MSG);
                 printMsg(COLOR_DEFAULT_TXT);
+                SHAREDFUNCTIONS_freeArda(&arda);
+                close(listenFD);
+                closeAllClientFD();
+                BIDIRECTIONALLIST_destroy(&blist);
                 return -1;
             }
         }
