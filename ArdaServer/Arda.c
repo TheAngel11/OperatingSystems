@@ -40,6 +40,7 @@
 Arda arda;
 int listenFD = FD_NOT_FOUND;
 BidirectionalList blist;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /*********************************************************************
  * @Purpose: Closes all the file descriptors of the clients.
@@ -164,9 +165,14 @@ void * threadClient(void *c_fd) {
                 free(buffer);
 
                 printMsg(UPDATING_LIST_MSG);
-                // Adding the client to the list
+
+                // We check with mutual exclusion that only 1 process is added to the list at the same time
+                // if there are 2 or more users connecting at the same time
+                pthread_mutex_lock(&mutex);
+                // Adding the client to the list (critical region)
                 BIDIRECTIONALLIST_addAfter(&blist, element);
-                
+                pthread_mutex_unlock(&mutex);
+
                 printMsg(SENDING_LIST_MSG);
                 // Write connexion frame
                 if (BIDIRECTIONALLIST_getErrorCode(blist) == LIST_NO_ERROR) {
@@ -185,7 +191,8 @@ void * threadClient(void *c_fd) {
                 asprintf(&buffer, PETITION_UPDATE_MSG, data, data);
                 printMsg(buffer);
                 free(buffer);
-                
+
+                // We don't need to apply mutex because the list is not modified
                 data = SHAREDFUNCTIONS_writeDataFieldUpdate(blist);
                 SHAREDFUNCTIONS_writeFrame(clientFD, 2, LIST_RESPONSE, data);     
                 break;
@@ -206,6 +213,11 @@ void * threadClient(void *c_fd) {
                 
                 printMsg(UPDATING_LIST_MSG);
                 // Removing client from the list
+
+                // We check with mutual exclusion that only 1 process is removed to the list at the same time
+                // if there are 2 or more users disconnecting at the same time
+                pthread_mutex_lock(&mutex);
+                // Critical region
                 BIDIRECTIONALLIST_goToHead(&blist);
                 // 1 - Searching the client
                 while(strcmp(BIDIRECTIONALLIST_get(&blist).username, data) != 0) {
@@ -214,10 +226,11 @@ void * threadClient(void *c_fd) {
                 }
 
                 if(checked) {
-                    // 2 - Removing the client
+                    // 2 - Removing the client (critical region)
                     BIDIRECTIONALLIST_remove(&blist);
-                }
-
+                }                
+                pthread_mutex_unlock(&mutex); 
+                
                 printMsg(SENDING_LIST_MSG);
                 // 3 - writing the exit frame
                 if ((BIDIRECTIONALLIST_getErrorCode(blist) == LIST_NO_ERROR) && checked) {
