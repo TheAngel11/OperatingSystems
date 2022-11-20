@@ -1,3 +1,8 @@
+/*********************************************************************
+* @Purpose: Contains all the necessary functions to manage a
+*           bidirectional list of a defined element.
+* @Last change: 18/11/2022
+*********************************************************************/
 #include "bidirectionallist.h"
 
 BidirectionalList BIDIRECTIONALLIST_create() {
@@ -129,11 +134,9 @@ void BIDIRECTIONALLIST_remove(BidirectionalList * list) {
 	}
 }
 
-
 int	BIDIRECTIONALLIST_isEmpty(BidirectionalList list) {
 	return list.head->next == list.tail;
 }
-
 
 int BIDIRECTIONALLIST_isValid(BidirectionalList list) {
 	return list.poi != list.head && list.poi != list.tail;
@@ -152,8 +155,6 @@ void BIDIRECTIONALLIST_next(BidirectionalList * list) {
 	}
 }
 
-
-
 void BIDIRECTIONALLIST_goToTail(BidirectionalList * list) {
 	list->poi = list->tail->previous;
 }
@@ -168,7 +169,6 @@ void BIDIRECTIONALLIST_previous(BidirectionalList * list) {
 }
 
 
-
 void BIDIRECTIONALLIST_destroy(BidirectionalList * list) {
 	while (list->head != NULL) {
 		list->poi = list->head;
@@ -178,5 +178,3 @@ void BIDIRECTIONALLIST_destroy(BidirectionalList * list) {
 	list->tail = NULL;
 	list->poi = NULL;
 }
-
-

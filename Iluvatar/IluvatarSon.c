@@ -3,12 +3,16 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 23/10/2022
+* @Last change: 19/11/2022
 *********************************************************************/
 #define _GNU_SOURCE 1
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
 #include "commands.h"
 #include "../sharedFunctions.h"
@@ -21,6 +25,7 @@
 
 IluvatarSon iluvatarSon;
 char *iluvatar_command = NULL;
+int fd_arda = -1;
 
 /*********************************************************************
  @Purpose: Free memory when SIGINT received.
@@ -32,6 +37,8 @@ void sigintHandler() {
 	if (NULL != iluvatar_command) {
 	    free(iluvatar_command);
 	}
+
+	close(fd_arda);
 	printMsg(COLOR_DEFAULT_TXT);
 	
 	signal(SIGINT, SIG_DFL);
@@ -121,7 +128,15 @@ int main(int argc, char* argv[]) {
 
 		printMsg(COLOR_DEFAULT_TXT);
 	} else {
-	    // read input file
+		// connect to Arda server
+		if ((fd_arda = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+		    printMsg(COLOR_RED_TXT);
+			printMsg(ERROR_CREATING_SOCKET_MSG);
+			printMsg(COLOR_DEFAULT_TXT);
+			return (0);
+		}
+	    
+		// read input file
 		read_ok = readIluvatarSon(argv[1], &iluvatarSon);
 		
 		if (ILUVATARSON_KO == read_ok) {

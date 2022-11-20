@@ -213,59 +213,61 @@ void SHAREDFUNCTIONS_readFrame(int fd, int *type, char *header, char *data) {
  * 			in/out: data = data of the frame passed by reference
  * @Return: ----
  * ********************************************************************/
-void SHAREDFUNCTIONS_writeFrame(int fd, int type, char *header, char *data) {
+void SHAREDFUNCTIONS_writeFrame(int fd, char type, char *header, char *data) {
 	char *buffer = NULL;
 	char *frame = NULL;
-	int length = 0;
+	char byte = 0;
+	unsigned int length = 0;
+	char length_lsB = 0, length_msB = 0;
 
 	// write type (1 byte)
 	switch (type) {
-	case 10:
-		buffer = "A";
-		break;
-	case 11:
-		buffer = "B";
-		break;
-	case 12:
-		buffer = "C";
-		break;		
-	case 13:
-		buffer = "D";
-		break;		
-	case 14:
-		buffer = "E";
-		break;		
-	case 15:
-		buffer = "F";
-		break;
-	default:
-		asprintf(&buffer, "%d", type);
-		break;
+	    case 0x0A:
+		    byte = 'A';
+			break;
+		case 0x0B:
+		    byte = 'B';
+			break;
+		case 0x0C:
+		    byte = 'C';
+			break;
+		case 0x0D:
+		    byte = 'D';
+			break;
+		case 0x0E:
+		    byte = 'E';
+			break;
+		case 0x0F:
+		    byte = 'F';
+			break;
+		default:
+		    byte = type + '0';
+			break;
 	}
 	
-	strcpy(frame, buffer);
-
-	if(buffer != NULL) {
-		free(buffer);
-	}
-
+	asprintf(&frame, "%c", byte);
 	// write header
 	asprintf(&buffer, "[%s]", header);	
 	strcat(frame, buffer);
 	free(buffer);
+	buffer = NULL;
 
 	// write lenght (2 bytes)
 	if(data != NULL) {
 		length = strlen(data);
-		asprintf(&buffer, "%d", length);
+		length_msB = (char) ((length >> 8) & 0x00FF); 	// shift MSB
+		length_lsB = (char) (length & 0x00FF);			// store LSB
+		asprintf(&buffer, "%c%c", length_msB, length_lsB);
 		strcat(frame, buffer);
 		free(buffer);
+		buffer = NULL;
 		// write data (lenght bytes)
 		strcat(frame, data);
 	} else {
 		asprintf(&buffer, "%d", length);
 		strcat(frame, buffer);
 		free(buffer);
+		buffer = NULL;
 	}
 
 	// write frame to the client fd
@@ -289,5 +291,3 @@ void SHAREDFUNCTIONS_parseDataFieldConnection(char *data, char *username, char *
 	*port = atoi(strtok(NULL, GPC_DATA_SEPARATOR_STR));
 	*pid = atoi(strtok(NULL, GPC_DATA_SEPARATOR_STR));	
 }
-
-
