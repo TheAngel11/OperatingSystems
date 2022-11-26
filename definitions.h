@@ -21,6 +21,7 @@
 /* General Protocol Communication (GPC) constants */
 #define GPC_DATA_SEPARATOR			'&'
 #define GPC_DATA_SEPARATOR_STR		"&"
+#define GPC_USERS_SEPARATOR			'#'
 #define GPC_UPDATE_USERS_HEADER_IN	"LIST_REQUEST"
 #define GPC_UPDATE_USERS_HEADER_OUT	"LIST_RESPONSE"
 

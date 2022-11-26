@@ -102,8 +102,8 @@ void * threadClient(void *element) {
     Element *list_info = (Element *) element;
     int clientFD = list_info->clientFD;
     char type = 0x07;
-    char *header = NULL;
-    char *data = NULL;
+    //char *header = NULL;
+    //char *data = NULL;
 
     // Adding the client to the list
     BIDIRECTIONALLIST_addAfter(&blist, *list_info);
@@ -117,7 +117,7 @@ void * threadClient(void *element) {
     
 
     while(1) {
-        data = SHAREDFUNCTIONS_readFrame(clientFD, &type, header);
+        //data = SHAREDFUNCTIONS_readFrame(clientFD, &type, header);
 
         switch (type) {
             // Update list petition            
@@ -176,10 +176,10 @@ int main(int argc, char** argv){
     pthread_t thread;
     Element element;
     struct sockaddr_in server;
-    char *username = NULL;
-    char *ip = NULL;
-    int port;
-    pid_t pid;
+    //char *username = NULL;
+    //char *ip = NULL;
+    //int port;
+    //pid_t pid;
     arda = newArda();
     char type = 0x07;
     char *header = NULL;
@@ -263,12 +263,12 @@ int main(int argc, char** argv){
                 // Connection request
                 case 1:
                     // Preparing the element to add to the list
-                    SHAREDFUNCTIONS_parseDataFieldConnection(data, username, ip, &port, &pid);
-                    element.clientFD = clientFD;
-                    element.username = username;
-                    element.ip_network = ip;
-                    element.port = port;
-                    element.pid = pid;
+                    //SHAREDFUNCTIONS_parseDataFieldConnection(data, username, ip, &port, &pid);
+                    //element.clientFD = clientFD;
+                    element.username = strtok(data, GPC_DATA_SEPARATOR_STR);
+                    element.ip_network = strtok(NULL, GPC_DATA_SEPARATOR_STR);
+                    element.port = atoi(strtok(NULL, GPC_DATA_SEPARATOR_STR));
+                    element.pid = atoi(strtok(NULL, GPC_DATA_SEPARATOR_STR));
                     element.clientFD = clientFD;
 
                     // Creating the thread

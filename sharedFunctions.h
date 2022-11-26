@@ -87,6 +87,6 @@ void SHAREDFUNCTIONS_writeFrame(int fd, char type, char *header, char *data);
  *  		in/out: pid = the pid of the client passed by reference
  * @Return: ----
  * ********************************************************************/
-void SHAREDFUNCTIONS_parseDataFieldConnection(char *data, char *username, char *ip, int *port, pid_t *pid);
+//void SHAREDFUNCTIONS_parseDataFieldConnection(char *data, char *username, char *ip, int *port, pid_t *pid);
 
 #endif

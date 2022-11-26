@@ -156,12 +156,34 @@ int identifyCommand(char **args, int n_args) {
 * @Params: in: id = ID of the custom command to execute
 * @Return: ----
 *********************************************************************/
-BidirectionalList getListFromString(char *users) {
+BidirectionalList getListFromString(char *users, int length) {
     BidirectionalList list = BIDIRECTIONALLIST_create();
 	Element user;
 	char *buffer = NULL;
+	char *tmp = NULL;
+	int i = 0, j = 0;
 
-	//
+	while (i < length) {
+	    // get single user
+		buffer = SHAREDFUNCTIONS_splitString(users, GPC_USERS_SEPARATOR, &i);
+		user.username = SHAREDFUNCTIONS_splitString(buffer, GPC_DATA_SEPARATOR, &j);
+		user.ip_network = SHAREDFUNCTIONS_splitString(buffer, GPC_DATA_SEPARATOR, &j);
+		tmp = SHAREDFUNCTIONS_splitString(buffer, GPC_DATA_SEPARATOR, &j);
+		user.port = atoi(tmp);
+		free(tmp);
+		tmp = NULL;
+		tmp = SHAREDFUNCTIONS_splitString(buffer, GPC_DATA_SEPARATOR, &j);
+		user.pid = atoi(tmp);
+		free(tmp);
+		tmp = NULL;
+		// add to list
+		BIDIRECTIONALLIST_addAfter(&list, user);
+		// next user
+		free(buffer);
+		buffer = NULL;
+	}
+
+	return (list);
 }
 
 /*********************************************************************
@@ -208,7 +230,7 @@ void executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 			// get list
 			buffer = SHAREDFUNCTIONS_readFrame(fd_dest, &type, header);
 			// update list
-			*clients = getListFromString(buffer);
+			*clients = getListFromString(buffer, (int) strlen(buffer));
 			free(buffer);
 			buffer = NULL;
 			break;
