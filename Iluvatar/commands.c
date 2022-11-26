@@ -4,7 +4,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 17/11/2022
+* @Last change: 20/11/2022
 *********************************************************************/
 #include "commands.h"
 
@@ -153,33 +153,83 @@ int identifyCommand(char **args, int n_args) {
 
 /*********************************************************************
 * @Purpose: Executes a custom command given its ID. Currently only
+* @Params: in: id = ID of the custom command to execute
+* @Return: ----
+*********************************************************************/
+BidirectionalList getListFromString(char *users) {
+    BidirectionalList list = BIDIRECTIONALLIST_create();
+	Element user;
+	char *buffer = NULL;
+
+	//
+}
+
+/*********************************************************************
+* @Purpose: Prints a list of the connected users.
+* @Params: in: users = list of connected users
+* @Return: ----
+*********************************************************************/
+void printUsersList(BidirectionalList users) {
+	char *buffer = NULL;
+	Element user;
+	int i = 1;
+
+	BIDIRECTIONALLIST_goToHead(&users);
+
+	while (users.error != LIST_ERROR_END) {
+	    user = BIDIRECTIONALLIST_get(&users);
+		asprintf(&buffer, "%d. %s %s %d %s %d\n", i, user.username, user.ip_network, user.port, user.ip_network , user.pid);
+		printMsg(buffer);
+		free(buffer);
+		buffer = NULL;
+		BIDIRECTIONALLIST_next(&users);
+	}
+}
+
+/*********************************************************************
+* @Purpose: Executes a custom command given its ID. Currently only
 *           prints the selected command.
 * @Params: in: id = ID of the custom command to execute
 * @Return: ----
 *********************************************************************/
-void executeCustomCommand(int id) {
+void executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, BidirectionalList *clients) {
     char *buffer = NULL;
+	char *header = NULL;
+	char type = 0x07;			// set to UNKNOWN by default
 
 	switch (id) {
 	    case IS_UPDATE_USERS_CMD:
 		    asprintf(&buffer, "%s\n", UPDATE_USERS_CMD);
 			printMsg(buffer);
 			free(buffer);
+			buffer = NULL;
+			// request list
+			SHAREDFUNCTIONS_writeFrame(fd_dest, 0x02, GPC_UPDATE_USERS_HEADER_IN, iluvatar.username);
+			// get list
+			buffer = SHAREDFUNCTIONS_readFrame(fd_dest, &type, header);
+			// update list
+			*clients = getListFromString(buffer);
+			free(buffer);
+			buffer = NULL;
 			break;
 		case IS_LIST_USERS_CMD:
 		    asprintf(&buffer, "%s\n", LIST_USERS_CMD);
 			printMsg(buffer);
 			free(buffer);
+			buffer = NULL;
+			printUsersList(*clients);
 			break;
 		case IS_SEND_MSG_CMD:
 		    asprintf(&buffer, "%s\n", SEND_MSG_CMD);
 			printMsg(buffer);
 			free(buffer);
+			buffer = NULL;
 			break;
 		case IS_SEND_FILE_CMD:
 		    asprintf(&buffer, "%s\n", SEND_FILE_CMD);
 			printMsg(buffer);
 			free(buffer);
+			buffer = NULL;
 			break;
 		default:
 		    // exit command
@@ -215,9 +265,11 @@ void freeMemCmd(char ***args, int *n_args) {
 /*********************************************************************
 * @Purpose: Executes the command entered by the user.
 * @Params: in: user_input = entire command (with args) entered by user
+*          in/out: iluvatar = IluvatarSon issuing command
+*		   in: fd_arda = Arda's file descriptor (connected to server)
 * @Return: 0 if EXIT command entered, otherwise 1.
 *********************************************************************/
-int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar) {
+int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda, BidirectionalList *users_list) {
     char **command = NULL;
 	int n_args = 0, cmd_id = 0;
 	int pid = -1, status = 0;
@@ -228,7 +280,7 @@ int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar) {
 	
 	if ((ERROR_CMD_ARGS != cmd_id) && (IS_NOT_CUSTOM_CMD != cmd_id)) {
 	    // execute custom command
-		executeCustomCommand(cmd_id);
+		executeCustomCommand(cmd_id, fd_arda, *iluvatar, users_list);
 		
 		if (cmd_id == IS_EXIT_CMD) {
 			freeMemCmd(&command, &n_args);

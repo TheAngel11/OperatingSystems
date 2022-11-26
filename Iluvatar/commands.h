@@ -12,6 +12,7 @@
 
 #include "../definitions.h"
 #include "../sharedFunctions.h"
+#include "../bidirectionallist.h"
 
 /* CUSTOM COMMANDS */
 #define UPDATE_USERS_CMD		"UPDATE USERS\0"
@@ -47,6 +48,13 @@
 #define IS_NOT_CUSTOM_CMD		0
 #define ERROR_CMD_ARGS			-1
 
-int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar);
+/*********************************************************************
+* @Purpose: Executes the command entered by the user.
+* @Params: in: user_input = entire command (with args) entered by user
+*          in/out: iluvatar = IluvatarSon issuing command
+*		   in: fd_arda = Arda's file descriptor (connected to server)
+* @Return: 0 if EXIT command entered, otherwise 1.
+*********************************************************************/
+int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda, BidirectionalList *users_list);
 
 #endif

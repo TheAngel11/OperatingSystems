@@ -142,67 +142,64 @@ void SHAREDFUNCTIONS_freeArda(Arda *arda) {
 
 /**********************************************************************
 * @Purpose: Reads the network frame that the client have sent.
-* @Params: in: fd 	= the file descriptor we want to read from 
+* @Params: in: fd = the file descriptor we want to read from 
 *          in/out: type = type of the frame passed by reference
 *          in/out: header = header of the frame passed by reference
-*          in/out: data = data of the frame passed by reference     
-* @Return: ----
+* @Return: Returns the data if the frame.
 ***********************************************************************/
-void SHAREDFUNCTIONS_readFrame(int fd, int *type, char *header, char *data) {
+char * SHAREDFUNCTIONS_readFrame(int fd, char *type, char *header) {
 	char *buffer = NULL;
 	char byte;
 	int length = 0;
+	char *data = NULL;
 
 	// read type (1 byte)
 	read(fd, &byte, sizeof(char));
 
 	switch (byte) {
-	case 'A':
-		*type = 10;
-		break;
-	case 'B':
-		*type = 11;
-		break;
-	case 'C':
-		*type = 12;
-		break;		
-	case 'D':
-		*type = 13;
-		break;		
-	case 'E':
-		*type = 14;
-		break;		
-	case 'F':
-		*type = 15;
-		break;
-	default:
-		*type = byte - '0';
-		break;
+	    case 'A':
+		    *type = 0x0A;
+			break;
+		case 'B':
+		    *type = 0x0B;
+			break;
+		case 'C':
+		    *type = 0x0C;
+			break;
+		case 'D':
+		    *type = 0x0D;
+			break;
+		case 'E':
+		    *type = 0x0E;
+			break;
+		case 'F':
+		    *type = 0x0F;
+			break;
+		default:
+		    *type = byte - '0';
+			break;
 	}
 	
+	// skip '['
+	read(fd, &byte, sizeof(char));
 	// read header
 	buffer = SHAREDFUNCTIONS_readUntil(fd, ']');
-	
-	// removes first character
-	buffer = buffer + 1; 
-	// removes last character
-	buffer[strlen(buffer) - 1] = '\0'; 
-	
 	header = (char *) malloc (sizeof(char) * (strlen(buffer) + 1));
 	strcpy(header, buffer);
 	free(buffer);
-
+	buffer = NULL;
 	// read lenght (2 bytes)
-	read(fd, buffer, sizeof(char) * 2);
-	length = atoi(buffer);
-	free(buffer);
+	read(fd, &byte, sizeof(char));			// MSB
+	length = (int) ((byte << 8) & 0xFF00);
+	read(fd, &byte, sizeof(char));			// LSB
+	length += (int) (byte & 0x00FF);
 
 	// read data (lenght bytes)
+	data = (char *) malloc (sizeof(char) * (length + 1));
 	read(fd, buffer, sizeof(char) * length);
+	data[length] = '\0';
 
-	data = (char *) malloc (sizeof(char) * (strlen(buffer) + 1));
-	strcpy(data, buffer);
-	free(buffer);
+	return (data);
 }
 
 /**********************************************************************
@@ -264,14 +261,18 @@ void SHAREDFUNCTIONS_writeFrame(int fd, char type, char *header, char *data) {
 		// write data (lenght bytes)
 		strcat(frame, data);
 	} else {
-		asprintf(&buffer, "%d", length);
+		length_msB = (char) ((length >> 8) & 0x00FF); 	// shift MSB
+		length_lsB = (char) (length & 0x00FF);			// store LSB
+		asprintf(&buffer, "%c%c", length_msB, length_lsB);
 		strcat(frame, buffer);
 		free(buffer);
 		buffer = NULL;
 	}
 
-	// write frame to the client fd
+	// write entire frame
 	write(fd, frame, strlen(frame));
+	free(frame);
+	frame = NULL;
 }
 
 /**********************************************************************
@@ -284,8 +285,6 @@ void SHAREDFUNCTIONS_writeFrame(int fd, char type, char *header, char *data) {
  * @Return: ----
  * ********************************************************************/
 void SHAREDFUNCTIONS_parseDataFieldConnection(char *data, char *username, char *ip, int *port, pid_t *pid) {
-	printf("username: %s", username);	// DEBUGGING PURPOSES
-	printf("ip: %s", ip);				// DEBUGGING PURPOSES
 	username = strtok(data, GPC_DATA_SEPARATOR_STR);
 	ip = strtok(NULL, GPC_DATA_SEPARATOR_STR);
 	*port = atoi(strtok(NULL, GPC_DATA_SEPARATOR_STR));

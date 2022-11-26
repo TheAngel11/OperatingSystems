@@ -64,10 +64,9 @@ void SHAREDFUNCTIONS_freeArda(Arda *arda);
 * @Params: in: fd 	= file descriptor of the client
 *          in/out: type = type of the frame passed by reference
 *          in/out: header = header of the frame passed by reference
-*          in/out: data = data of the frame passed by reference     
-* @Return: ----
+* @Return: Returns the data of the frame.
 ***********************************************************************/
-void SHAREDFUNCTIONS_readFrame(int fd, int *type, char *header, char *data);
+char * SHAREDFUNCTIONS_readFrame(int fd, char *type, char *header);
 
 /**********************************************************************
  * @Purpose: Reads from a file descriptor until a given char is found.
@@ -77,7 +76,7 @@ void SHAREDFUNCTIONS_readFrame(int fd, int *type, char *header, char *data);
  * 			in/out: data = data of the frame passed by reference
  * @Return: ----
  * ********************************************************************/
-void SHAREDFUNCTIONS_writeFrame(int fd, int type, char *header, char *data);
+void SHAREDFUNCTIONS_writeFrame(int fd, char type, char *header, char *data);
 
 /**********************************************************************
  * @Purpose: Parses the data field of a frame

@@ -18,7 +18,7 @@
 #define WELCOME_MSG                 "ARDA SERVER\n"
 #define READING_FILE_MSG            "Reading configuration file\n"
 #define WAITING_CONNECTIONS_MSG     "Waiting for connections...\n"
-#define ERROR_CREATING_SOCKET_MSG   "ERROR: Arda could not create the server socket\n"
+//#define ERROR_CREATING_SOCKET_MSG   "ERROR: Arda could not create the server socket\n"
 #define ERROR_BINDING_SOCKET_MSG    "ERROR: Arda could not bind the server socket\n"
 #define ERROR_LISTENING_MSG         "ERROR: Arda could not make the listen\n"
 #define ERROR_LISTENING_MSG         "ERROR: Arda could not make the listen\n"
@@ -101,6 +101,9 @@ int readArda(char *filename, Arda *arda) {
 void * threadClient(void *element) {
     Element *list_info = (Element *) element;
     int clientFD = list_info->clientFD;
+    char type = 0x07;
+    char *header = NULL;
+    char *data = NULL;
 
     // Adding the client to the list
     BIDIRECTIONALLIST_addAfter(&blist, *list_info);
@@ -114,10 +117,7 @@ void * threadClient(void *element) {
     
 
     while(1) {
-        int type = -1;
-        char *header = NULL;
-        char *data = NULL;
-        SHAREDFUNCTIONS_readFrame(clientFD, &type, header, data);
+        data = SHAREDFUNCTIONS_readFrame(clientFD, &type, header);
 
         switch (type) {
             // Update list petition            
@@ -181,6 +181,9 @@ int main(int argc, char** argv){
     int port;
     pid_t pid;
     arda = newArda();
+    char type = 0x07;
+    char *header = NULL;
+    char *data = NULL;
 
     if(MIN_N_ARGS > argc){
         printMsg(COLOR_RED_TXT);
@@ -219,7 +222,10 @@ int main(int argc, char** argv){
     bzero(&server, sizeof(server));
     server.sin_port = htons(arda.port);
     server.sin_family = AF_INET;
-    server.sin_addr.s_addr = htonl(INADDR_ANY);
+	if (inet_pton(AF_INET, arda.ip_address, &server.sin_addr) < 0) {
+	    printMsg("Error IP\n");
+	}
+    //server.sin_addr.s_addr = htonl(INADDR_ANY);
 
     // Binding server socket (Assigning IP and port to the socket)
     if (bind(listenFD, (struct sockaddr*) &server, sizeof(server)) < 0){
@@ -251,10 +257,7 @@ int main(int argc, char** argv){
             printMsg(ERROR_ACCEPTING_MSG);
             printMsg(COLOR_DEFAULT_TXT);
         } else {
-            int type = -1;
-            char *header = NULL;
-            char *data = NULL;
-            SHAREDFUNCTIONS_readFrame(clientFD, &type, header, data);
+            data = SHAREDFUNCTIONS_readFrame(clientFD, &type, header);
 
             switch (type) {
                 // Connection request
