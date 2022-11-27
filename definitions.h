@@ -22,8 +22,12 @@
 #define GPC_DATA_SEPARATOR			'&'
 #define GPC_DATA_SEPARATOR_STR		"&"
 #define GPC_USERS_SEPARATOR			'#'
+#define GPC_USERS_SEPARATOR_STR		"#"
 #define GPC_UPDATE_USERS_HEADER_IN	"LIST_REQUEST"
 #define GPC_UPDATE_USERS_HEADER_OUT	"LIST_RESPONSE"
+#define GPC_HEADER_CONOK            "CONOK"
+#define GPC_HEADER_CONKO            "CONKO"
+#define GPC_UNKNOWN_CMD_HEADER      "UNKNOWN"
 
 typedef struct {
     char *username;

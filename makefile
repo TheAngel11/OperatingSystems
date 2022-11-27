@@ -1,4 +1,4 @@
-all: IluvatarSon Arda
+all: Arda IluvatarSon
 commands.o: Iluvatar/commands.c Iluvatar/commands.h
 	gcc -c -Wall -Wextra Iluvatar/commands.c
 sharedFunctions.o: sharedFunctions.c sharedFunctions.h

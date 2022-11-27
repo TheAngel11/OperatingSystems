@@ -13,37 +13,67 @@
 #include "../sharedFunctions.h"
 #include "../bidirectionallist.h"
 
-#define DISCONNECT_ARDA_MSG         "Disconnecting Arda from all Iluvatar’s children\n"
-#define CLOSING_ARDA_MSG            "Closing server\n"
-#define WELCOME_MSG                 "ARDA SERVER\n"
-#define READING_FILE_MSG            "Reading configuration file\n"
-#define WAITING_CONNECTIONS_MSG     "Waiting for connections...\n"
+#define DISCONNECT_ARDA_MSG         	"Disconnecting Arda from all Iluvatar's children\n"
+#define CLOSING_ARDA_MSG            	"Closing server\n"
+#define WELCOME_MSG                 	"\nARDA SERVER\n"
+#define READING_FILE_MSG            	"Reading configuration file\n"
+#define WAITING_CONNECTIONS_MSG     	"Waiting for connections...\n\n"
 //#define ERROR_CREATING_SOCKET_MSG   "ERROR: Arda could not create the server socket\n"
-#define ERROR_BINDING_SOCKET_MSG    "ERROR: Arda could not bind the server socket\n"
-#define ERROR_LISTENING_MSG         "ERROR: Arda could not make the listen\n"
-#define ERROR_LISTENING_MSG         "ERROR: Arda could not make the listen\n"
-#define ERROR_ACCEPTING_MSG	        "ERROR: Arda could not accept the connection request\n"
-#define ERROR_CREATING_THREAD_MSG   "ERROR: Arda could not create the thread\n"
-#define ERROR_N_ARGS_MSG            "ERROR: not enough arguments\n"
+#define ERROR_BINDING_SOCKET_MSG    	"ERROR: Arda could not bind the server socket\n"
+#define ERROR_LISTENING_MSG         	"ERROR: Arda could not make the listen\n"
+#define ERROR_ACCEPTING_MSG	        	"ERROR: Arda could not accept the connection request\n"
+#define ERROR_CREATING_THREAD_MSG   	"ERROR: Arda could not create the thread\n"
+#define ERROR_TYPE_NOT_IMPLEMENTED_MSG	"ERROR: That type of frame has not been implemented yet\n"
+#define NEW_LOGIN_MSG                   "New login: %s, IP: %s, port: %d, PID %d\n"
+#define UPDATING_LIST_MSG               "Updating user's list\n"
+#define SENDING_LIST_MSG                "Sending user's list\n"
+#define RENPONSE_SENT_LIST_MSG          "Response sent\n\n"
+#define PETITION_UPDATE_MSG             "New petition: %s demands the user's list\nSending user's list to %s\n\n"
+#define PETITION_EXIT_MSG               "New exit petition: %s has left Arda\n"
+#define ERROR_N_ARGS_MSG            	"ERROR: not enough arguments\n"
 
-#define ARDA_OK	    0		
-#define ARDA_KO	    -1
-#define MIN_N_ARGS	2
-#define BACKLOG     10
+#define ARDA_OK	    					0
+#define ARDA_KO	    					-1
+#define MIN_N_ARGS						2
+#define BACKLOG     					10
+#define FD_NOT_FOUND                    -1
 
 Arda arda;
-int listenFD;
+int listenFD = FD_NOT_FOUND;
 BidirectionalList blist;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
+/*********************************************************************
+ * @Purpose: Closes all the file descriptors of the clients.
+ * @Params: ----
+ * @Return: ----
+ * *********************************************************************/
+void closeAllClientFD() {
+    int clientFD;
+
+    BIDIRECTIONALLIST_goToHead(&blist);
+
+    while (BIDIRECTIONALLIST_isValid(blist)) {
+        clientFD = BIDIRECTIONALLIST_get(&blist).clientFD;
+        close(clientFD);
+        BIDIRECTIONALLIST_next(&blist);
+    } 
+}
 
 /*********************************************************************
 * @Purpose: Free memory when SIGINT received.
 * @Params: ----
 * @Return: ----
 *********************************************************************/
-void sigHandler(){
-    close(listenFD);
-    // TODO: fer un close de tots els clients fd i acaba els threads
+void sigIntHandler(){    
+    if(listenFD != FD_NOT_FOUND){
+        close(listenFD);
+    }
+
+    closeAllClientFD(); 
+    BIDIRECTIONALLIST_destroy(&blist);
     SHAREDFUNCTIONS_freeArda(&arda);
+    
     printMsg(DISCONNECT_ARDA_MSG);
     printMsg(CLOSING_ARDA_MSG);
     signal(SIGINT, SIG_DFL);
@@ -95,73 +125,136 @@ int readArda(char *filename, Arda *arda) {
 
 /*********************************************************************
 * @Purpose: Creates the thread for the client that has connected.
-* @Params: in: fd = file descriptor of the client
+* @Params: in: c_fd = file descriptor of the client
 * @Return: ----
 *********************************************************************/
-void * threadClient(void *element) {
-    Element *list_info = (Element *) element;
-    int clientFD = list_info->clientFD;
+void * threadClient(void *c_fd) {
+    int clientFD = *((int *) c_fd);
     char type = 0x07;
-    //char *header = NULL;
-    //char *data = NULL;
-
-    // Adding the client to the list
-    BIDIRECTIONALLIST_addAfter(&blist, *list_info);
-
-    // Write connexion frame
-    /*if (BIDIRECTIONALLIST_getErrorCode(blist) == LIST_NO_ERROR) {
-        //SHAREDFUNCTIONS_writeFrame(clientFD, 1, "CONOK", );       //TODO: Enviar frame posant a data tota la info dels clients
-    } else {
-        SHAREDFUNCTIONS_writeFrame(clientFD, 1, "CONKO", NULL);
-    }*/
-    
+    char *header = NULL;
+    char *data = NULL;
+    char *username = NULL;
+    char *ip = NULL;
+    int port = 0;
+    pid_t pid = 0;
+    int checked = 0;
+    char *buffer = NULL;
+    Element element;    
 
     while(1) {
-        //data = SHAREDFUNCTIONS_readFrame(clientFD, &type, header);
+        type = 0x07;
+        header = NULL;
+        data = NULL;
+
+        data = SHAREDFUNCTIONS_readFrame(clientFD, &type, header);
 
         switch (type) {
-            // Update list petition            
-            case 2:
-                //SHAREDFUNCTIONS_writeFrame(clientFD, 2, "LIST_RESPONSE", );       //TODO: Enviar frame posant a data tota la info dels clients
+            // Connection request
+            case 0x01:
+                // Preparing the element to add to the list
+                /*SHAREDFUNCTIONS_parseDataFieldConnection(data, username, ip, &port, &pid);
+                element.username = username;
+                element.ip_network = ip;
+                element.port = port;
+                element.pid = pid;*/
+				element.username = strtok(data, GPC_DATA_SEPARATOR_STR);
+				element.ip_network = strtok(NULL, GPC_DATA_SEPARATOR_STR);
+				element.port = atoi(strtok(NULL, GPC_DATA_SEPARATOR_STR));
+				element.pid = atoi(strtok(NULL, GPC_DATA_SEPARATOR_STR));
+                element.clientFD = clientFD;
+				free(data);
+				data = NULL;
+
+                // Printing the new login
+                asprintf(&buffer, NEW_LOGIN_MSG, username, ip, port, pid);
+                printMsg(buffer);
+                free(buffer);
+
+                printMsg(UPDATING_LIST_MSG);
+
+                // We check with mutual exclusion that only 1 process is added to the list at the same time
+                // if there are 2 or more users connecting at the same time
+                pthread_mutex_lock(&mutex);
+                // Adding the client to the list (critical region)
+                BIDIRECTIONALLIST_addAfter(&blist, element);
+                pthread_mutex_unlock(&mutex);
+
+                printMsg(SENDING_LIST_MSG);
+                // Write connexion frame
+                if (blist.error == LIST_NO_ERROR) {
+                    data = SHAREDFUNCTIONS_writeDataFieldUpdate(blist);
+                    SHAREDFUNCTIONS_writeFrame(clientFD, 0x01, GPC_HEADER_CONOK, data);   
+                } else {
+                    SHAREDFUNCTIONS_writeFrame(clientFD, 0x01, GPC_HEADER_CONKO, NULL);
+                }
+                
+                printMsg(RENPONSE_SENT_LIST_MSG);
                 break;
             
-            case 3: case 4: case 5: case 8:
-                // Types not implemented
+            // Update list petition            
+            case 0x02:
+                // data is the username
+                asprintf(&buffer, PETITION_UPDATE_MSG, data, data);
+                printMsg(buffer);
+                free(buffer);
+
+                // We don't need to apply mutex because the list is not modified
+                data = SHAREDFUNCTIONS_writeDataFieldUpdate(blist);
+                SHAREDFUNCTIONS_writeFrame(clientFD, 0x02, GPC_UPDATE_USERS_HEADER_OUT, data);     
+                break;
+            
+            // Types not implemented yet
+            case 0x03: case 0x04: case 0x05: case 0x08:
+                printMsg(COLOR_RED_TXT);
+		        printMsg(ERROR_TYPE_NOT_IMPLEMENTED_MSG);
+                printMsg(COLOR_DEFAULT_TXT);
                 break;
 
             // Exit petition
-            case 6:
+            case 0x06:
+                // data is the username
+                asprintf(&buffer, PETITION_EXIT_MSG, data);
+                printMsg(buffer);
+                free(buffer);
+                
+                printMsg(UPDATING_LIST_MSG);
                 // Removing client from the list
+
+                // We check with mutual exclusion that only 1 process is removed to the list at the same time
+                // if there are 2 or more users disconnecting at the same time
+                pthread_mutex_lock(&mutex);
+                // Critical region
                 BIDIRECTIONALLIST_goToHead(&blist);
                 // 1 - Searching the client
-                while(BIDIRECTIONALLIST_get(&blist).clientFD != clientFD) {
+                while(strcmp(BIDIRECTIONALLIST_get(&blist).username, data) != 0) {
                     BIDIRECTIONALLIST_next(&blist);
+                    checked = 1;
                 }
 
-                // 2 - Removing the client
-                BIDIRECTIONALLIST_remove(&blist);
+                if(checked) {
+                    // 2 - Removing the client (critical region)
+                    BIDIRECTIONALLIST_remove(&blist);
+                }                
+                pthread_mutex_unlock(&mutex); 
                 
+                printMsg(SENDING_LIST_MSG);
                 // 3 - writing the exit frame
-                /*if (BIDIRECTIONALLIST_getErrorCode(blist) == LIST_NO_ERROR) {
-                    SHAREDFUNCTIONS_writeFrame(clientFD, 6, "CONOK", NULL);
-                
+                if ((blist.error == LIST_NO_ERROR) && checked) {
+                    SHAREDFUNCTIONS_writeFrame(clientFD, 0x06, GPC_HEADER_CONOK, NULL);             
                 } else {
-                    SHAREDFUNCTIONS_writeFrame(clientFD, 6, "CONKO", NULL);
-                }*/
-                    
-                
-                
+                    SHAREDFUNCTIONS_writeFrame(clientFD, 0x06, GPC_HEADER_CONKO, NULL);
+                }             
+                printMsg(RENPONSE_SENT_LIST_MSG);
 
                 // 4 - Closing the client connection
                 close(clientFD);
-                
                 return NULL;
-
                 break;
-
+            
+            // Wrong type
             default:
                 // Send error frame
-                SHAREDFUNCTIONS_writeFrame(clientFD, 7, "UNKNOWN", NULL);
+                SHAREDFUNCTIONS_writeFrame(clientFD, 0x07, GPC_UNKNOWN_CMD_HEADER, NULL);
                 break;
         }
     }
@@ -169,31 +262,31 @@ void * threadClient(void *element) {
     return NULL;
 }
 
-int main(int argc, char** argv){
-    int clientFD = -1;
+int main(int argc, char* argv[]) {
+    int clientFD = FD_NOT_FOUND;
     char *buffer = NULL;
     int read_ok = ARDA_KO;
     pthread_t thread;
-    Element element;
     struct sockaddr_in server;
-    //char *username = NULL;
-    //char *ip = NULL;
-    //int port;
-    //pid_t pid;
-    arda = newArda();
-    char type = 0x07;
-    char *header = NULL;
-    char *data = NULL;
-
-    if(MIN_N_ARGS > argc){
+    
+    if (MIN_N_ARGS > argc) {
         printMsg(COLOR_RED_TXT);
-        printMsg(ERROR_N_ARGS_MSG);
+		printMsg(ERROR_N_LESS_ARGS_MSG);
         printMsg(COLOR_DEFAULT_TXT);
-        return -1;
+        
+		return (-1);
+    } else if (MIN_N_ARGS < argc) {
+        printMsg(COLOR_RED_TXT);
+		printMsg(ERROR_N_MORE_ARGS_MSG);
+        printMsg(COLOR_DEFAULT_TXT);
+        
+		return (-1);
     }
 
     // Mantaining stable the program when Ctrl + C occurs
-    signal(SIGINT, sigHandler);
+    signal(SIGINT, sigIntHandler);
+    
+    arda = newArda();
 
     printMsg(WELCOME_MSG);
     printMsg(READING_FILE_MSG);
@@ -205,17 +298,16 @@ int main(int argc, char** argv){
         printMsg(buffer);
         free(buffer);
         SHAREDFUNCTIONS_freeArda(&arda);
-        return -1;
+        return (-1);
     }
     
-
     // Creating the server socket
-    if((listenFD = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0){
+    if ((listenFD = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
         printMsg(COLOR_RED_TXT);
         printMsg(ERROR_CREATING_SOCKET_MSG);
         printMsg(COLOR_DEFAULT_TXT);
-        //TODO: Deixar tot estable abans de fer el return
-        return -1;
+        SHAREDFUNCTIONS_freeArda(&arda);
+        return (-1);
     }
 
     // Clear and assign the values to the server structure
@@ -228,12 +320,13 @@ int main(int argc, char** argv){
     //server.sin_addr.s_addr = htonl(INADDR_ANY);
 
     // Binding server socket (Assigning IP and port to the socket)
-    if (bind(listenFD, (struct sockaddr*) &server, sizeof(server)) < 0){
+    if (bind(listenFD, (struct sockaddr*) &server, sizeof(server)) < 0) {
         printMsg(COLOR_RED_TXT);
         printMsg(ERROR_BINDING_SOCKET_MSG);
         printMsg(COLOR_DEFAULT_TXT);
-        //TODO: Deixar tot estable abans de fer el return
-        return -1;
+        SHAREDFUNCTIONS_freeArda(&arda);
+        close(listenFD);
+        return (-1);
     }
 
     // Listening (Transforms the server active socket into a passive socket)
@@ -241,49 +334,34 @@ int main(int argc, char** argv){
         printMsg(COLOR_RED_TXT);
         printMsg(ERROR_LISTENING_MSG);
         printMsg(COLOR_DEFAULT_TXT);
-        //TODO: Deixar tot estable abans de fer el return
-        return -1;
+        SHAREDFUNCTIONS_freeArda(&arda);
+        close(listenFD);
+        return (-1);
     }
 
     // Creating the bidirectional list
     blist = BIDIRECTIONALLIST_create();
+
     // Running the server
-    while(1) {
+    while (1) {
         printMsg(WAITING_CONNECTIONS_MSG);
         
         // Accept (Blocks the system until a connection request arrives)
-        if ((clientFD = accept(listenFD, (struct sockaddr*) NULL, NULL)) < 0){
+        if ((clientFD = accept(listenFD, (struct sockaddr*) NULL, NULL)) < 0) {
             printMsg(COLOR_RED_TXT);
             printMsg(ERROR_ACCEPTING_MSG);
             printMsg(COLOR_DEFAULT_TXT);
         } else {
-            data = SHAREDFUNCTIONS_readFrame(clientFD, &type, header);
-
-            switch (type) {
-                // Connection request
-                case 1:
-                    // Preparing the element to add to the list
-                    //SHAREDFUNCTIONS_parseDataFieldConnection(data, username, ip, &port, &pid);
-                    //element.clientFD = clientFD;
-                    element.username = strtok(data, GPC_DATA_SEPARATOR_STR);
-                    element.ip_network = strtok(NULL, GPC_DATA_SEPARATOR_STR);
-                    element.port = atoi(strtok(NULL, GPC_DATA_SEPARATOR_STR));
-                    element.pid = atoi(strtok(NULL, GPC_DATA_SEPARATOR_STR));
-                    element.clientFD = clientFD;
-
-                    // Creating the thread
-                    if (pthread_create(&thread, NULL, threadClient, &element) != 0) {
-                        printMsg(COLOR_RED_TXT);
-                        printMsg(ERROR_CREATING_THREAD_MSG);
-                        printMsg(COLOR_DEFAULT_TXT);
-                        return -1;
-                    }
-
-                    pthread_join(thread, NULL);
-                    break;
-
-                //default:
-                    // TODO: Send error message if in a connection request the type is not 1
+            // Creating the thread
+            if (pthread_create(&thread, NULL, threadClient, &clientFD) != 0) {
+                printMsg(COLOR_RED_TXT);
+                printMsg(ERROR_CREATING_THREAD_MSG);
+                printMsg(COLOR_DEFAULT_TXT);
+                SHAREDFUNCTIONS_freeArda(&arda);
+                close(listenFD);
+                closeAllClientFD();
+                BIDIRECTIONALLIST_destroy(&blist);
+                return (-1);
             }
         }
     }

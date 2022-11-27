@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "definitions.h"
+#include "bidirectionallist.h"
 
 /* Constants */
 #define READ_FILE_OK             0
@@ -88,5 +88,30 @@ void SHAREDFUNCTIONS_writeFrame(int fd, char type, char *header, char *data);
  * @Return: ----
  * ********************************************************************/
 //void SHAREDFUNCTIONS_parseDataFieldConnection(char *data, char *username, char *ip, int *port, pid_t *pid);
+
+/**********************************************************************
+ * @Purpose: Writes the data field of a frame when a client connects or 
+ * 			 updates the clients data
+ * @Params: in: blist = the list of the clients connected to the server
+ * @Return: data = the data field of the frame with all the clients 
+ * 				   connected
+ * ********************************************************************/
+char * SHAREDFUNCTIONS_writeDataFieldUpdate(BidirectionalList blist);
+
+/**********************************************************************
+ * @Purpose: Reads the data field of a frame when a client connects
+ * 			 or updates the clients data
+ * @Params: in/out: data = the data field of the frame
+ * 			in/out: username = the matrix of usernames of the clients 
+ * 							   passed by reference
+ * 			in/out: ip = the matrix of ip addresses of the clients 
+ * 						 passed by reference
+ * 			in/out: port = the matrix of ports of the clients passed 
+ * 						   by reference
+ *  		in/out: pid = the matrix of pids of the clients passed 
+ * 						  by reference
+ * @Return: ----
+ * ********************************************************************/
+void SHAREDFUNCTIONS_readDataFieldUpdate(char *data, char **username, char **ip, int **port, int **pid);
 
 #endif

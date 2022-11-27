@@ -91,6 +91,4 @@ void	BIDIRECTIONALLIST_previous(BidirectionalList * list);
 
 void 	BIDIRECTIONALLIST_destroy(BidirectionalList * list);
 
-int		BIDIRECTIONALLIST_getErrorCode(BidirectionalList list);
-
 #endif
