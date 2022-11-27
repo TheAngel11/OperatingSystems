@@ -193,11 +193,20 @@ char * SHAREDFUNCTIONS_readFrame(int fd, char *type, char *header) {
 	length = (int) ((byte << 8) & 0xFF00);
 	read(fd, &byte, sizeof(char));			// LSB
 	length += (int) (byte & 0x00FF);
+	// debug
+	char *buf = NULL;
+	asprintf(&buf, "\nLength: %d\n", length);
+	printMsg(buf);
+	free(buf);
+	buf = NULL;
+	// end debug
 
 	// read data (lenght bytes)
-	data = (char *) malloc (sizeof(char) * (length + 1));
-	read(fd, buffer, sizeof(char) * length);
-	data[length] = '\0';
+	if (0 < length) {
+	    data = (char *) malloc (sizeof(char) * (length + 1));
+		read(fd, buffer, sizeof(char) * length);
+		data[length] = '\0';
+	}
 
 	return (data);
 }

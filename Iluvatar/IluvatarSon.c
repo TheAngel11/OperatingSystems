@@ -3,7 +3,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 20/11/2022
+* @Last change: 27/11/2022
 *********************************************************************/
 #define _GNU_SOURCE 1
 #include <stdio.h>
@@ -109,7 +109,7 @@ int readIluvatarSon(char *filename, IluvatarSon *iluvatar) {
 * @Params: in/out: server = struct with the parameters of the server
 * @Return: Returns 0 if an error occurred, otherwise 1.
 *********************************************************************/
-int connectToArda(struct sockaddr_in *server) {
+/*int connectToArda(struct sockaddr_in *server) {
     // config socket
 	if ((fd_arda = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
 	    printMsg(COLOR_RED_TXT);
@@ -142,7 +142,7 @@ int connectToArda(struct sockaddr_in *server) {
 	}
 
 	return (1);
-}
+}*/
 
 /*********************************************************************
 * @Purpose: Executes the IluvatarSon process.
@@ -188,11 +188,53 @@ int main(int argc, char* argv[]) {
 			return (0);
 		}
 		
+/* START TEST */
+        // config socket
+		if ((fd_arda = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+	        printMsg(COLOR_RED_TXT);
+			printMsg(ERROR_CREATING_SOCKET_MSG);
+			printMsg(COLOR_DEFAULT_TXT);
+			SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
+			return (1);
+		}
+
+		bzero(&server, sizeof(server));
+		server.sin_family = AF_INET;
+		server.sin_port = htons(iluvatarSon.arda_port);
+		if (inet_pton(AF_INET, iluvatarSon.arda_ip_address, &server.sin_addr) < 0) {
+	        printMsg(COLOR_RED_TXT);
+			printMsg(ERROR_IP_CONFIGURATION_MSG);
+			printMsg(COLOR_DEFAULT_TXT);
+			// finish execution
+			SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
+			close(fd_arda);
+			return (1);
+		}
+
+		// connect to server
+		if (connect(fd_arda, (struct sockaddr*) &server, sizeof(server)) < 0) {
+	        printMsg(COLOR_RED_TXT);
+			printMsg(ERROR_SERVER_CONNECTION_MSG);
+			printMsg(COLOR_DEFAULT_TXT);
+			// finish execution
+			SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
+			close(fd_arda);
+			return (1);
+		}
+/* END TEST */
+
+		// notify connection to Arda
+		asprintf(&buffer, "%s%c%s%c%d%c%d", iluvatarSon.username, GPC_DATA_SEPARATOR, iluvatarSon.ip_address, GPC_DATA_SEPARATOR, iluvatarSon.port, GPC_DATA_SEPARATOR, getpid());
+		SHAREDFUNCTIONS_writeFrame(fd_arda, 0x01, GPC_CONNECT_SON_HEADER, buffer);
+		free(buffer);
+		buffer = NULL;
+		// wait for answer
+		/*
 		// connect to Arda server
 		if (1 != connectToArda(&server)) {
 			SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
 			return (0);
-		}
+		}*/
 
 		// welcome user
 		asprintf(&buffer, WELCOME_MSG, COLOR_DEFAULT_TXT, iluvatarSon.username);

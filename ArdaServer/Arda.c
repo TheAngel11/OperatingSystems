@@ -1,3 +1,10 @@
+/*********************************************************************
+* @Purpose: Runs the server for the sons of Iluvatar.
+* @Authors: Angel Garcia Gascon
+*           Claudia Lajara Silvosa
+* @Date:
+* @Last change: 27/11/2022
+*********************************************************************/
 #define _GNU_SOURCE 1
 #include <sys/socket.h>
 #include <signal.h>
@@ -13,12 +20,11 @@
 #include "../sharedFunctions.h"
 #include "../bidirectionallist.h"
 
-#define DISCONNECT_ARDA_MSG         	"Disconnecting Arda from all Iluvatar's children\n"
+#define DISCONNECT_ARDA_MSG         	"\nDisconnecting Arda from all Iluvatar's children\n"
 #define CLOSING_ARDA_MSG            	"Closing server\n"
 #define WELCOME_MSG                 	"\nARDA SERVER\n"
 #define READING_FILE_MSG            	"Reading configuration file\n"
 #define WAITING_CONNECTIONS_MSG     	"Waiting for connections...\n\n"
-//#define ERROR_CREATING_SOCKET_MSG   "ERROR: Arda could not create the server socket\n"
 #define ERROR_BINDING_SOCKET_MSG    	"ERROR: Arda could not bind the server socket\n"
 #define ERROR_LISTENING_MSG         	"ERROR: Arda could not make the listen\n"
 #define ERROR_ACCEPTING_MSG	        	"ERROR: Arda could not accept the connection request\n"
@@ -44,10 +50,10 @@ BidirectionalList blist;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /*********************************************************************
- * @Purpose: Closes all the file descriptors of the clients.
- * @Params: ----
- * @Return: ----
- * *********************************************************************/
+* @Purpose: Closes all the file descriptors of the clients.
+* @Params: ----
+* @Return: ----
+*********************************************************************/
 void closeAllClientFD() {
     int clientFD;
 
@@ -65,8 +71,8 @@ void closeAllClientFD() {
 * @Params: ----
 * @Return: ----
 *********************************************************************/
-void sigIntHandler(){    
-    if(listenFD != FD_NOT_FOUND){
+void sigIntHandler() {   
+    if (listenFD != FD_NOT_FOUND) {
         close(listenFD);
     }
 
@@ -142,10 +148,6 @@ void * threadClient(void *c_fd) {
     Element element;    
 
     while(1) {
-        type = 0x07;
-        header = NULL;
-        data = NULL;
-
         data = SHAREDFUNCTIONS_readFrame(clientFD, &type, header);
 
         switch (type) {
@@ -157,6 +159,9 @@ void * threadClient(void *c_fd) {
                 element.ip_network = ip;
                 element.port = port;
                 element.pid = pid;*/
+				printMsg("\nData: ");
+				printMsg(data);
+				printMsg("\n");
 				element.username = strtok(data, GPC_DATA_SEPARATOR_STR);
 				element.ip_network = strtok(NULL, GPC_DATA_SEPARATOR_STR);
 				element.port = atoi(strtok(NULL, GPC_DATA_SEPARATOR_STR));
@@ -226,12 +231,12 @@ void * threadClient(void *c_fd) {
                 // Critical region
                 BIDIRECTIONALLIST_goToHead(&blist);
                 // 1 - Searching the client
-                while(strcmp(BIDIRECTIONALLIST_get(&blist).username, data) != 0) {
+                while (strcmp(BIDIRECTIONALLIST_get(&blist).username, data) != 0) {
                     BIDIRECTIONALLIST_next(&blist);
                     checked = 1;
                 }
 
-                if(checked) {
+                if (checked) {
                     // 2 - Removing the client (critical region)
                     BIDIRECTIONALLIST_remove(&blist);
                 }                
@@ -257,6 +262,13 @@ void * threadClient(void *c_fd) {
                 SHAREDFUNCTIONS_writeFrame(clientFD, 0x07, GPC_UNKNOWN_CMD_HEADER, NULL);
                 break;
         }
+
+		if (NULL != data) {
+		    free(data);
+			data = NULL;
+		}
+        
+		type = 0x07;
     }
     
     return NULL;
@@ -273,14 +285,12 @@ int main(int argc, char* argv[]) {
         printMsg(COLOR_RED_TXT);
 		printMsg(ERROR_N_LESS_ARGS_MSG);
         printMsg(COLOR_DEFAULT_TXT);
-        
 		return (-1);
     } else if (MIN_N_ARGS < argc) {
         printMsg(COLOR_RED_TXT);
 		printMsg(ERROR_N_MORE_ARGS_MSG);
         printMsg(COLOR_DEFAULT_TXT);
-        
-		return (-1);
+        return (-1);
     }
 
     // Mantaining stable the program when Ctrl + C occurs
@@ -290,9 +300,9 @@ int main(int argc, char* argv[]) {
 
     printMsg(WELCOME_MSG);
     printMsg(READING_FILE_MSG);
-	
-    read_ok = readArda(argv[1], &arda);
-    if (ARDA_KO == read_ok) {
+	read_ok = readArda(argv[1], &arda);
+    
+	if (ARDA_KO == read_ok) {
         printMsg(COLOR_RED_TXT);
         asprintf(&buffer, ERROR_OPENING_FILE, argv[1]);
         printMsg(buffer);
@@ -314,6 +324,7 @@ int main(int argc, char* argv[]) {
     bzero(&server, sizeof(server));
     server.sin_port = htons(arda.port);
     server.sin_family = AF_INET;
+	
 	if (inet_pton(AF_INET, arda.ip_address, &server.sin_addr) < 0) {
 	    printMsg("Error IP\n");
 	}

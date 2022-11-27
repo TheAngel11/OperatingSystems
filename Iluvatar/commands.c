@@ -4,7 +4,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 20/11/2022
+* @Last change: 27/11/2022
 *********************************************************************/
 #include "commands.h"
 
@@ -181,6 +181,7 @@ BidirectionalList getListFromString(char *users, int length) {
 		// next user
 		free(buffer);
 		buffer = NULL;
+		j = 0;
 	}
 
 	return (list);
@@ -214,7 +215,7 @@ void printUsersList(BidirectionalList users) {
 * @Params: in: id = ID of the custom command to execute
 * @Return: ----
 *********************************************************************/
-void executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, BidirectionalList *clients) {
+char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, BidirectionalList *clients) {
     char *buffer = NULL;
 	char *header = NULL;
 	char type = 0x07;			// set to UNKNOWN by default
@@ -258,8 +259,20 @@ void executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 		    asprintf(&buffer, "%s\n", EXIT_CMD);
 			printMsg(buffer);
 			free(buffer);
+			// notify Arda
+			SHAREDFUNCTIONS_writeFrame(fd_dest, 0x06, GPC_EXIT_HEADER, iluvatar.username);
+			// get answer
+			SHAREDFUNCTIONS_readFrame(fd_dest, &type, header);
+			if (0 == strcmp(header, GPC_HEADER_CONKO)) {
+			    printMsg(COLOR_RED_TXT);
+				printMsg(ERROR_DISCONNECT_ILUVATAR_MSG);
+				printMsg(COLOR_DEFAULT_TXT);
+				return (1);
+			}
 			break;
 	}
+
+	return (0);
 }
 
 /*********************************************************************
@@ -293,6 +306,7 @@ void freeMemCmd(char ***args, int *n_args) {
 *********************************************************************/
 int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda, BidirectionalList *users_list) {
     char **command = NULL;
+	char error = 0;
 	int n_args = 0, cmd_id = 0;
 	int pid = -1, status = 0;
 
@@ -302,9 +316,9 @@ int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda
 	
 	if ((ERROR_CMD_ARGS != cmd_id) && (IS_NOT_CUSTOM_CMD != cmd_id)) {
 	    // execute custom command
-		executeCustomCommand(cmd_id, fd_arda, *iluvatar, users_list);
+		error = executeCustomCommand(cmd_id, fd_arda, *iluvatar, users_list);
 		
-		if (cmd_id == IS_EXIT_CMD) {
+		if ((cmd_id == IS_EXIT_CMD) && !error) {
 			freeMemCmd(&command, &n_args);
 			SHAREDFUNCTIONS_freeIluvatarSon(iluvatar);
 			return (1);
