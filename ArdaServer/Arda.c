@@ -145,13 +145,14 @@ void *threadClient(void *c_fd) {
     pid_t pid = 0;
     int checked = 0;
     char *buffer = NULL;
-    Element element;    
+    Element element;
+	char ok = 0;
 
-    while(1) {
-        data = SHAREDFUNCTIONS_readFrame(clientFD, &type, header);
+    while (1) {
+        ok = SHAREDFUNCTIONS_readFrame(clientFD, &type, header, &data);
 		//TODO:debug
 		char *deb = NULL;
-		asprintf(&deb, "\nType: %d, Data: %s\n", type, data);
+		asprintf(&deb, "\nCheck: %d Type: %d Data: %s\n", ok, type, data);
 		printMsg(deb);
 		free(deb);
 		deb = NULL;
@@ -166,9 +167,6 @@ void *threadClient(void *c_fd) {
                 element.ip_network = ip;
                 element.port = port;
                 element.pid = pid;*/
-				printMsg("\nData: ");
-				printMsg(data);
-				printMsg("\n");
 				element.username = strtok(data, GPC_DATA_SEPARATOR_STR);
 				element.ip_network = strtok(NULL, GPC_DATA_SEPARATOR_STR);
 				element.port = atoi(strtok(NULL, GPC_DATA_SEPARATOR_STR));
@@ -347,7 +345,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Listening (Transforms the server active socket into a passive socket)
-    if (listen(listenFD, BACKLOG) < 0){
+    if (listen(listenFD, BACKLOG) < 0) {
         printMsg(COLOR_RED_TXT);
         printMsg(ERROR_LISTENING_MSG);
         printMsg(COLOR_DEFAULT_TXT);
@@ -358,11 +356,10 @@ int main(int argc, char* argv[]) {
 
     // Creating the bidirectional list
     blist = BIDIRECTIONALLIST_create();
+    printMsg(WAITING_CONNECTIONS_MSG);
 
     // Running the server
     while (1) {
-        printMsg(WAITING_CONNECTIONS_MSG);
-        
         // Accept (Blocks the system until a connection request arrives)
         if ((clientFD = accept(listenFD, (struct sockaddr*) NULL, NULL)) < 0) {
             printMsg(COLOR_RED_TXT);

@@ -225,25 +225,10 @@ int main(int argc, char* argv[]) {
 
 		// notify connection to Arda
 		asprintf(&buffer, "%s%c%s%c%d%c%d", iluvatarSon.username, GPC_DATA_SEPARATOR, iluvatarSon.ip_address, GPC_DATA_SEPARATOR, iluvatarSon.port, GPC_DATA_SEPARATOR, getpid());
-		//TODO:debug
-		printMsg("Data to write: ");
-		printMsg(buffer);
-		printMsg("\n");
-		//TODO:end debug
 		SHAREDFUNCTIONS_writeFrame(fd_arda, 0x01, GPC_CONNECT_SON_HEADER, buffer);
 		free(buffer);
 		buffer = NULL;
 		// wait for answer
-		/*
-		// connect to Arda server
-		if (1 != connectToArda(&server)) {
-			SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
-			return (0);
-		}*/
-		//TODO:debug
-		pause();
-		//TODO:end debug
-
 		// welcome user
 		asprintf(&buffer, WELCOME_MSG, COLOR_DEFAULT_TXT, iluvatarSon.username);
 		printMsg(buffer);

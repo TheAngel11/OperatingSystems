@@ -147,11 +147,11 @@ void SHAREDFUNCTIONS_freeArda(Arda *arda) {
 *          in/out: header = header of the frame passed by reference
 * @Return: Returns the data if the frame.
 ***********************************************************************/
-char * SHAREDFUNCTIONS_readFrame(int fd, char *type, char *header) {
+char SHAREDFUNCTIONS_readFrame(int fd, char *type, char *header, char **data) {
 	char *buffer = NULL;
-	char byte;
+	char byte = 0x07;
 	unsigned short length = 0;
-	char *data = NULL;
+	//char *data = NULL;
 
 	// read type (1 byte)
 	read(fd, &byte, sizeof(char));
@@ -200,12 +200,12 @@ char * SHAREDFUNCTIONS_readFrame(int fd, char *type, char *header) {
 
 	// read data (lenght bytes)
 	if (0 < length) {
-	    data = (char *) malloc (sizeof(char) * (length + 1));
-		read(fd, buffer, sizeof(char) * length);
-		data[length] = '\0';
+	    *data = (char *) malloc (sizeof(char) * (length + 1));
+		read(fd, *data, sizeof(char) * length);
+		(*data)[length] = '\0';
 	}
 
-	return (data);
+	return (1);
 }
 
 /**********************************************************************
@@ -216,7 +216,7 @@ char * SHAREDFUNCTIONS_readFrame(int fd, char *type, char *header) {
 * 			in/out: data = data of the frame passed by reference
 * @Return: ----
 **********************************************************************/
-void SHAREDFUNCTIONS_writeFrame(int fd, char type, char *header, char *data) {
+char SHAREDFUNCTIONS_writeFrame(int fd, char type, char *header, char *data) {
 	char *frame = NULL;
 	char byte = 0;
 	unsigned short length = 0;
@@ -262,8 +262,8 @@ void SHAREDFUNCTIONS_writeFrame(int fd, char type, char *header, char *data) {
 	if (data != NULL) {
 		length_msB = (char) ((length >> 8) & 0x00FF); 	// shift MSB
 		length_lsB = (char) (length & 0x00FF);			// store LSB
-		frame[i] = length_msB;
-		frame[i + 1] = length_lsB;
+		frame[i] = length_lsB;
+		frame[i + 1] = length_msB;
 		i += 2;
 		// write data (length bytes)
 		for (j = 0; j < length; j++) {
@@ -278,9 +278,11 @@ void SHAREDFUNCTIONS_writeFrame(int fd, char type, char *header, char *data) {
 
 	frame[i] = '\0';
 	// write entire frame
-	write(fd, frame, strlen(frame));
+	write(fd, frame, size);
 	free(frame);
 	frame = NULL;
+
+	return (1);
 }
 
 /**********************************************************************

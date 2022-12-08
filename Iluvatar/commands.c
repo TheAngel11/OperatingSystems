@@ -218,7 +218,7 @@ void printUsersList(BidirectionalList users) {
 char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, BidirectionalList *clients) {
     char *buffer = NULL;
 	char *header = NULL;
-	char type = 0x07;			// set to UNKNOWN by default
+	//char type = 0x07;			// set to UNKNOWN by default
 
 	switch (id) {
 	    case IS_UPDATE_USERS_CMD:
@@ -229,7 +229,7 @@ char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 			// request list
 			SHAREDFUNCTIONS_writeFrame(fd_dest, 0x02, GPC_UPDATE_USERS_HEADER_IN, iluvatar.username);
 			// get list
-			buffer = SHAREDFUNCTIONS_readFrame(fd_dest, &type, header);
+			//buffer = SHAREDFUNCTIONS_readFrame(fd_dest, &type, header);
 			// update list
 			*clients = getListFromString(buffer, (int) strlen(buffer));
 			free(buffer);
@@ -262,7 +262,7 @@ char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 			// notify Arda
 			SHAREDFUNCTIONS_writeFrame(fd_dest, 0x06, GPC_EXIT_HEADER, iluvatar.username);
 			// get answer
-			SHAREDFUNCTIONS_readFrame(fd_dest, &type, header);
+			//SHAREDFUNCTIONS_readFrame(fd_dest, &type, header);
 			if (0 == strcmp(header, GPC_HEADER_CONKO)) {
 			    printMsg(COLOR_RED_TXT);
 				printMsg(ERROR_DISCONNECT_ILUVATAR_MSG);
