@@ -3,7 +3,7 @@
 * @Authors: Angel Garcia Gascon
 *           Claudia Lajara Silvosa
 * @Date:
-* @Last change: 27/11/2022
+* @Last change: 08/12/2022
 *********************************************************************/
 #define _GNU_SOURCE 1
 #include <sys/socket.h>
@@ -134,7 +134,7 @@ int readArda(char *filename, Arda *arda) {
 * @Params: in: c_fd = file descriptor of the client
 * @Return: ----
 *********************************************************************/
-void * threadClient(void *c_fd) {
+void *threadClient(void *c_fd) {
     int clientFD = *((int *) c_fd);
     char type = 0x07;
     char *header = NULL;
@@ -149,6 +149,13 @@ void * threadClient(void *c_fd) {
 
     while(1) {
         data = SHAREDFUNCTIONS_readFrame(clientFD, &type, header);
+		//TODO:debug
+		char *deb = NULL;
+		asprintf(&deb, "\nType: %d, Data: %s\n", type, data);
+		printMsg(deb);
+		free(deb);
+		deb = NULL;
+		//TODO:end debug
 
         switch (type) {
             // Connection request
@@ -328,7 +335,6 @@ int main(int argc, char* argv[]) {
 	if (inet_pton(AF_INET, arda.ip_address, &server.sin_addr) < 0) {
 	    printMsg("Error IP\n");
 	}
-    //server.sin_addr.s_addr = htonl(INADDR_ANY);
 
     // Binding server socket (Assigning IP and port to the socket)
     if (bind(listenFD, (struct sockaddr*) &server, sizeof(server)) < 0) {

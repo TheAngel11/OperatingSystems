@@ -4,7 +4,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 18/10/2022
-* @Last change: 17/11/2022
+* @Last change: 08/12/2022
 *********************************************************************/
 #include "sharedFunctions.h"
 
@@ -150,7 +150,7 @@ void SHAREDFUNCTIONS_freeArda(Arda *arda) {
 char * SHAREDFUNCTIONS_readFrame(int fd, char *type, char *header) {
 	char *buffer = NULL;
 	char byte;
-	int length = 0;
+	unsigned short length = 0;
 	char *data = NULL;
 
 	// read type (1 byte)
@@ -189,17 +189,14 @@ char * SHAREDFUNCTIONS_readFrame(int fd, char *type, char *header) {
 	free(buffer);
 	buffer = NULL;
 	// read lenght (2 bytes)
-	read(fd, &byte, sizeof(char));			// MSB
-	length = (int) ((byte << 8) & 0xFF00);
-	read(fd, &byte, sizeof(char));			// LSB
-	length += (int) (byte & 0x00FF);
-	// debug
+	read(fd, &length, 2);
+	// TODO:debug
 	char *buf = NULL;
 	asprintf(&buf, "\nLength: %d\n", length);
 	printMsg(buf);
 	free(buf);
 	buf = NULL;
-	// end debug
+	// TODO:end debug
 
 	// read data (lenght bytes)
 	if (0 < length) {
@@ -212,19 +209,27 @@ char * SHAREDFUNCTIONS_readFrame(int fd, char *type, char *header) {
 }
 
 /**********************************************************************
- * @Purpose: Reads from a file descriptor until a given char is found.
- * @Params: in: fd = the file descriptor we want to read from
- * 			in: type = the type of the frame
- * 			in/out: header = header of the frame passed by reference
- * 			in/out: data = data of the frame passed by reference
- * @Return: ----
- * ********************************************************************/
+* @Purpose: Reads from a file descriptor until a given char is found.
+* @Params: in: fd = the file descriptor we want to read from
+* 			in: type = the type of the frame
+* 			in/out: header = header of the frame passed by reference
+* 			in/out: data = data of the frame passed by reference
+* @Return: ----
+**********************************************************************/
 void SHAREDFUNCTIONS_writeFrame(int fd, char type, char *header, char *data) {
-	char *buffer = NULL;
 	char *frame = NULL;
 	char byte = 0;
-	unsigned int length = 0;
+	unsigned short length = 0;
 	char length_lsB = 0, length_msB = 0;
+	int i = 0, j = 0;
+	int size = 0;
+
+	if (NULL != data) {
+	    length = strlen(data);
+	}
+
+	size = 1 + ((int) strlen(header)) + 2 + 2 + length + 1;
+	frame = (char *) malloc (sizeof(char) * size);
 
 	// write type (1 byte)
 	switch (type) {
@@ -251,35 +256,27 @@ void SHAREDFUNCTIONS_writeFrame(int fd, char type, char *header, char *data) {
 			break;
 	}
 	
-	asprintf(&frame, "%c", byte);
-	// write header
-	asprintf(&buffer, "[%s]", header);
-	frame = (char *) realloc(frame, sizeof(char) * (strlen(frame) + strlen(buffer)));
-	strcat(frame, buffer);
-	free(buffer);
-	buffer = NULL;
+	i = sprintf(frame, "%c[%s]", byte, header);
 
 	// write lenght (2 bytes)
-	if(data != NULL) {
-		length = strlen(data);
+	if (data != NULL) {
 		length_msB = (char) ((length >> 8) & 0x00FF); 	// shift MSB
 		length_lsB = (char) (length & 0x00FF);			// store LSB
-		asprintf(&buffer, "%c%c", length_msB, length_lsB);
-		strcat(frame, buffer);
-		free(buffer);
-		buffer = NULL;
-		// write data (lenght bytes)
-		frame = (char *) realloc(frame, sizeof(char) * (strlen(frame) + strlen(data)));
-		strcat(frame, data);
+		frame[i] = length_msB;
+		frame[i + 1] = length_lsB;
+		i += 2;
+		// write data (length bytes)
+		for (j = 0; j < length; j++) {
+		    frame[i] = data[j];
+			i++;
+		}
 	} else {
-		length_msB = (char) ((length >> 8) & 0x00FF); 	// shift MSB
-		length_lsB = (char) (length & 0x00FF);			// store LSB
-		asprintf(&buffer, "%c%c", length_msB, length_lsB);
-		strcat(frame, buffer);
-		free(buffer);
-		buffer = NULL;
+		frame[i] = 0;
+		frame[i + 1] = 0;
+		i += 2;
 	}
 
+	frame[i] = '\0';
 	// write entire frame
 	write(fd, frame, strlen(frame));
 	free(frame);
