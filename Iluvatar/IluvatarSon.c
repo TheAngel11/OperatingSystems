@@ -155,6 +155,8 @@ int main(int argc, char* argv[]) {
 	char *command = iluvatar_command;
 	int exit_program = 0, read_ok = ILUVATARSON_KO;
 	struct sockaddr_in server;
+	char *header = NULL;
+	char type = 0x07;
 	
 	iluvatarSon = newIluvatarSon();
 	users_list = BIDIRECTIONALLIST_create();
@@ -229,6 +231,23 @@ int main(int argc, char* argv[]) {
 		free(buffer);
 		buffer = NULL;
 		// wait for answer
+		SHAREDFUNCTIONS_readFrame(fd_arda, &type, header, &buffer);
+		updateUsersList(&users_list, buffer);
+		free(buffer);
+		buffer = NULL;
+		//TODO:debug
+		BIDIRECTIONALLIST_goToHead(&users_list);
+		while (BIDIRECTIONALLIST_isValid(users_list)) {
+		    Element e = BIDIRECTIONALLIST_get(&users_list);
+			char *deb = NULL;
+			printMsg("User:\n");
+			asprintf(&deb, "\t%s\n\t%s\n\t%d\n\t%d\n", e.username, e.ip_network, e.port, e.pid);
+			printMsg(deb);
+			free(deb);
+			deb = NULL;
+			BIDIRECTIONALLIST_next(&users_list);
+		}
+		//TODO:end
 		// welcome user
 		asprintf(&buffer, WELCOME_MSG, COLOR_DEFAULT_TXT, iluvatarSon.username);
 		printMsg(buffer);

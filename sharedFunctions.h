@@ -98,6 +98,10 @@ char SHAREDFUNCTIONS_writeFrame(int fd, char type, char *header, char *data);
  * ********************************************************************/
 char * SHAREDFUNCTIONS_getUsersFromList(BidirectionalList blist);
 
+/*
+*/
+char updateUsersList(BidirectionalList *list, char *users);
+
 /**********************************************************************
  * @Purpose: Reads the data field of a frame when a client connects
  * 			 or updates the clients data

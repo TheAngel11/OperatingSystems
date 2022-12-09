@@ -134,6 +134,14 @@ void BIDIRECTIONALLIST_remove(BidirectionalList * list) {
 	}
 }
 
+void BIDIRECTIONALLIST_makeEmpty(BidirectionalList *list) {
+    BIDIRECTIONALLIST_goToHead(list);
+
+	while (!BIDIRECTIONALLIST_isEmpty(*list)) {
+		BIDIRECTIONALLIST_remove(list);
+	}
+}
+
 int	BIDIRECTIONALLIST_isEmpty(BidirectionalList list) {
 	return list.head->next == list.tail;
 }

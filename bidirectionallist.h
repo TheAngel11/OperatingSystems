@@ -79,6 +79,7 @@ void	BIDIRECTIONALLIST_addBefore(BidirectionalList * list, Element element);
 void	BIDIRECTIONALLIST_addAfter (BidirectionalList * list, Element element);
 Element	BIDIRECTIONALLIST_get(BidirectionalList * list);
 void	BIDIRECTIONALLIST_remove(BidirectionalList * list);
+void	BIDIRECTIONALLIST_makeEmpty(BidirectionalList *list);
 int		BIDIRECTIONALLIST_isEmpty(BidirectionalList list);
 
 int 	BIDIRECTIONALLIST_isValid(BidirectionalList list);

@@ -334,9 +334,6 @@ char * SHAREDFUNCTIONS_getUsersFromList(BidirectionalList blist) {
 		element = BIDIRECTIONALLIST_get(&blist);
 		if (flag_first) {
 			size = asprintf(&data, "%s&%s&%d&%d", element.username, element.ip_network, element.port, (int) element.pid);
-			// reserve memory for the data field
-			//data = (char *) malloc (sizeof(char) * (size + 1));
-			//data[size] = '\0';
 			flag_first = 0;
 		} else{
 			n = asprintf(&buffer, "#%s&%s&%d&%d", element.username, element.ip_network, element.port, (int) element.pid);
@@ -349,6 +346,51 @@ char * SHAREDFUNCTIONS_getUsersFromList(BidirectionalList blist) {
 	}
 
 	return (data);
+}
+
+/*
+*/
+void parseUserFromFrame(char *data, Element *e) {
+    char *buffer = NULL;
+	int i = 0;
+
+	// get username
+	e->username = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
+	// get IP
+	e->ip_network = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
+	// get port
+	buffer = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
+	e->port = atoi(buffer);
+	free(buffer);
+	buffer = NULL;
+	// get PID
+	buffer = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
+	e->pid = atoi(buffer);
+	free(buffer);
+	buffer = NULL;
+}
+
+/*
+*/
+char updateUsersList(BidirectionalList *list, char *users) {
+    Element element;
+	char *user = NULL;
+	int i = 0;
+
+	// reset list
+	BIDIRECTIONALLIST_makeEmpty(list);
+	BIDIRECTIONALLIST_goToTail(list);
+
+	// add users
+	do {
+	    user = SHAREDFUNCTIONS_splitString(users, GPC_USERS_SEPARATOR, &i);
+		parseUserFromFrame(user, &element);
+		free(user);
+		user = NULL;
+		BIDIRECTIONALLIST_addAfter(list, element);
+	} while (i < (int) strlen(users));
+
+	return (1);
 }
 
 /**********************************************************************
