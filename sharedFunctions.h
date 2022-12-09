@@ -96,7 +96,7 @@ char SHAREDFUNCTIONS_writeFrame(int fd, char type, char *header, char *data);
  * @Return: data = the data field of the frame with all the clients 
  * 				   connected
  * ********************************************************************/
-char * SHAREDFUNCTIONS_writeDataFieldUpdate(BidirectionalList blist);
+char * SHAREDFUNCTIONS_getUsersFromList(BidirectionalList blist);
 
 /**********************************************************************
  * @Purpose: Reads the data field of a frame when a client connects

@@ -3,7 +3,7 @@
 * @Authors: Angel Garcia Gascon
 *           Claudia Lajara Silvosa
 * @Date:
-* @Last change: 08/12/2022
+* @Last change: 09/12/2022
 *********************************************************************/
 #define _GNU_SOURCE 1
 #include <sys/socket.h>
@@ -139,46 +139,41 @@ void *threadClient(void *c_fd) {
     char type = 0x07;
     char *header = NULL;
     char *data = NULL;
-    char *username = NULL;
-    char *ip = NULL;
-    int port = 0;
-    pid_t pid = 0;
     int checked = 0;
     char *buffer = NULL;
     Element element;
-	char ok = 0;
+	int i = 0;
+//	char ok = 0;
 
     while (1) {
-        ok = SHAREDFUNCTIONS_readFrame(clientFD, &type, header, &data);
-		//TODO:debug
-		char *deb = NULL;
-		asprintf(&deb, "\nCheck: %d Type: %d Data: %s\n", ok, type, data);
-		printMsg(deb);
-		free(deb);
-		deb = NULL;
-		//TODO:end debug
+        SHAREDFUNCTIONS_readFrame(clientFD, &type, header, &data);
 
         switch (type) {
             // Connection request
             case 0x01:
                 // Preparing the element to add to the list
-                /*SHAREDFUNCTIONS_parseDataFieldConnection(data, username, ip, &port, &pid);
-                element.username = username;
-                element.ip_network = ip;
-                element.port = port;
-                element.pid = pid;*/
-				element.username = strtok(data, GPC_DATA_SEPARATOR_STR);
-				element.ip_network = strtok(NULL, GPC_DATA_SEPARATOR_STR);
-				element.port = atoi(strtok(NULL, GPC_DATA_SEPARATOR_STR));
-				element.pid = atoi(strtok(NULL, GPC_DATA_SEPARATOR_STR));
-                element.clientFD = clientFD;
+				element.username = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
+				element.ip_network = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
+				// get port
+				buffer = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
+				element.port = atoi(buffer);
+				free(buffer);
+				buffer = NULL;
+				// get PID
+				buffer = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
+				element.pid = atoi(buffer);
+				free(buffer);
+				buffer = NULL;
+                // get clientFD
+				element.clientFD = clientFD;
 				free(data);
 				data = NULL;
 
                 // Printing the new login
-                asprintf(&buffer, NEW_LOGIN_MSG, username, ip, port, pid);
+                asprintf(&buffer, NEW_LOGIN_MSG, element.username, element.ip_network, element.port, element.pid);
                 printMsg(buffer);
                 free(buffer);
+				buffer = NULL;
 
                 printMsg(UPDATING_LIST_MSG);
 
@@ -192,8 +187,8 @@ void *threadClient(void *c_fd) {
                 printMsg(SENDING_LIST_MSG);
                 // Write connexion frame
                 if (blist.error == LIST_NO_ERROR) {
-                    data = SHAREDFUNCTIONS_writeDataFieldUpdate(blist);
-                    SHAREDFUNCTIONS_writeFrame(clientFD, 0x01, GPC_HEADER_CONOK, data);   
+					data = SHAREDFUNCTIONS_getUsersFromList(blist);
+					SHAREDFUNCTIONS_writeFrame(clientFD, 0x01, GPC_HEADER_CONOK, data);   
                 } else {
                     SHAREDFUNCTIONS_writeFrame(clientFD, 0x01, GPC_HEADER_CONKO, NULL);
                 }
@@ -209,7 +204,7 @@ void *threadClient(void *c_fd) {
                 free(buffer);
 
                 // We don't need to apply mutex because the list is not modified
-                data = SHAREDFUNCTIONS_writeDataFieldUpdate(blist);
+				data = SHAREDFUNCTIONS_getUsersFromList(blist);
                 SHAREDFUNCTIONS_writeFrame(clientFD, 0x02, GPC_UPDATE_USERS_HEADER_OUT, data);     
                 break;
             

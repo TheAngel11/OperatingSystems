@@ -190,13 +190,6 @@ char SHAREDFUNCTIONS_readFrame(int fd, char *type, char *header, char **data) {
 	buffer = NULL;
 	// read lenght (2 bytes)
 	read(fd, &length, 2);
-	// TODO:debug
-	char *buf = NULL;
-	asprintf(&buf, "\nLength: %d\n", length);
-	printMsg(buf);
-	free(buf);
-	buf = NULL;
-	// TODO:end debug
 
 	// read data (lenght bytes)
 	if (0 < length) {
@@ -328,34 +321,34 @@ void SHAREDFUNCTIONS_parseDataFieldConnection(char *data, char *username, char *
  * @Return: data = the data field of the frame with all the clients 
  * 				   connected
  * ********************************************************************/
-char * SHAREDFUNCTIONS_writeDataFieldUpdate(BidirectionalList blist) {
+char * SHAREDFUNCTIONS_getUsersFromList(BidirectionalList blist) {
 	char *data = NULL;
 	char *buffer = NULL;
-	int new_size = 0;
+	int size = 0, n = 0;
 	int flag_first = 1;
 	Element element;
 
 	BIDIRECTIONALLIST_goToHead(&blist);
 
-	while(BIDIRECTIONALLIST_isValid(blist)) {
+	while (BIDIRECTIONALLIST_isValid(blist)) {
 		element = BIDIRECTIONALLIST_get(&blist);
-		if(flag_first) {
-			asprintf(&buffer, "%s&%s&%d&%d", element.username, element.ip_network, element.port, (int) element.pid);
+		if (flag_first) {
+			size = asprintf(&data, "%s&%s&%d&%d", element.username, element.ip_network, element.port, (int) element.pid);
 			// reserve memory for the data field
-			data = (char *) malloc (sizeof(char) * (strlen(buffer) + 1));
-			data[strlen(buffer)] = '\0';
+			//data = (char *) malloc (sizeof(char) * (size + 1));
+			//data[size] = '\0';
+			flag_first = 0;
 		} else{
-			asprintf(&buffer, "#%s&%s&%d&%d", element.username, element.ip_network, element.port, (int) element.pid);
-			new_size = strlen(data) + strlen(buffer) + 1;
-			data = (char *) realloc (data, sizeof(char) * new_size);
-			data[new_size] = '\0';
+			n = asprintf(&buffer, "#%s&%s&%d&%d", element.username, element.ip_network, element.port, (int) element.pid);
+			size += n + 1;
+			data = (char *) realloc (data, sizeof(char) * size);
+			strcat(data, buffer);
 		}		
 		
-		strcat(data, buffer);
 		BIDIRECTIONALLIST_next(&blist);
 	}
 
-	return data;
+	return (data);
 }
 
 /**********************************************************************
