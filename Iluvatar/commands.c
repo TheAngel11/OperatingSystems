@@ -4,7 +4,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 27/11/2022
+* @Last change: 09/12/2022
 *********************************************************************/
 #include "commands.h"
 
@@ -218,7 +218,7 @@ void printUsersList(BidirectionalList users) {
 char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, BidirectionalList *clients) {
     char *buffer = NULL;
 	char *header = NULL;
-	//char type = 0x07;			// set to UNKNOWN by default
+	char type = 0x07;			// set to UNKNOWN by default
 
 	switch (id) {
 	    case IS_UPDATE_USERS_CMD:
@@ -259,17 +259,27 @@ char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 		    asprintf(&buffer, "%s\n", EXIT_CMD);
 			printMsg(buffer);
 			free(buffer);
+			buffer = NULL;
 			// notify Arda
 			SHAREDFUNCTIONS_writeFrame(fd_dest, 0x06, GPC_EXIT_HEADER, iluvatar.username);
 			// get answer
-			//SHAREDFUNCTIONS_readFrame(fd_dest, &type, header);
+			SHAREDFUNCTIONS_readFrame(fd_dest, &type, &header, NULL);
+			
 			if (0 == strcmp(header, GPC_HEADER_CONKO)) {
 			    printMsg(COLOR_RED_TXT);
 				printMsg(ERROR_DISCONNECT_ILUVATAR_MSG);
 				printMsg(COLOR_DEFAULT_TXT);
+				free(header);
+				header = NULL;
 				return (1);
 			}
+
 			break;
+	}
+
+	if (NULL != header) {
+	    free(header);
+		header = NULL;
 	}
 
 	return (0);

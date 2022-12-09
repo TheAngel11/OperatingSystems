@@ -4,7 +4,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 18/10/2022
-* @Last change: 08/12/2022
+* @Last change: 09/12/2022
 *********************************************************************/
 #include "sharedFunctions.h"
 
@@ -147,11 +147,10 @@ void SHAREDFUNCTIONS_freeArda(Arda *arda) {
 *          in/out: header = header of the frame passed by reference
 * @Return: Returns the data if the frame.
 ***********************************************************************/
-char SHAREDFUNCTIONS_readFrame(int fd, char *type, char *header, char **data) {
+char SHAREDFUNCTIONS_readFrame(int fd, char *type, char **header, char **data) {
 	char *buffer = NULL;
 	char byte = 0x07;
 	unsigned short length = 0;
-	//char *data = NULL;
 
 	// read type (1 byte)
 	read(fd, &byte, sizeof(char));
@@ -182,10 +181,10 @@ char SHAREDFUNCTIONS_readFrame(int fd, char *type, char *header, char **data) {
 	
 	// skip '['
 	read(fd, &byte, sizeof(char));
+	
 	// read header
 	buffer = SHAREDFUNCTIONS_readUntil(fd, ']');
-	header = (char *) malloc (sizeof(char) * (strlen(buffer) + 1));
-	strcpy(header, buffer);
+	*header = strdup(buffer);
 	free(buffer);
 	buffer = NULL;
 	// read lenght (2 bytes)
@@ -221,7 +220,7 @@ char SHAREDFUNCTIONS_writeFrame(int fd, char type, char *header, char *data) {
 	    length = strlen(data);
 	}
 
-	size = 1 + ((int) strlen(header)) + 2 + 2 + length + 1;
+	size = 1 + ((int) strlen(header)) + 2 + 2 + length;// + 1;
 	frame = (char *) malloc (sizeof(char) * size);
 
 	// write type (1 byte)
@@ -269,7 +268,7 @@ char SHAREDFUNCTIONS_writeFrame(int fd, char type, char *header, char *data) {
 		i += 2;
 	}
 
-	frame[i] = '\0';
+	//frame[i] = '\0';
 	// write entire frame
 	write(fd, frame, size);
 	free(frame);

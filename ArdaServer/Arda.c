@@ -142,28 +142,15 @@ void *threadClient(void *c_fd) {
     int checked = 0;
     char *buffer = NULL;
     Element element;
-	int i = 0;
-//	char ok = 0;
 
     while (1) {
-        SHAREDFUNCTIONS_readFrame(clientFD, &type, header, &data);
+        SHAREDFUNCTIONS_readFrame(clientFD, &type, &header, &data);
 
         switch (type) {
             // Connection request
             case 0x01:
-                // Preparing the element to add to the list
-				element.username = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
-				element.ip_network = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
-				// get port
-				buffer = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
-				element.port = atoi(buffer);
-				free(buffer);
-				buffer = NULL;
-				// get PID
-				buffer = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
-				element.pid = atoi(buffer);
-				free(buffer);
-				buffer = NULL;
+				// get username, IP, port and PID
+				parseUserFromFrame(data, &element);
                 // get clientFD
 				element.clientFD = clientFD;
 				free(data);
@@ -221,6 +208,7 @@ void *threadClient(void *c_fd) {
                 asprintf(&buffer, PETITION_EXIT_MSG, data);
                 printMsg(buffer);
                 free(buffer);
+				buffer = NULL;
                 
                 printMsg(UPDATING_LIST_MSG);
                 // Removing client from the list
@@ -244,18 +232,20 @@ void *threadClient(void *c_fd) {
                 
                 printMsg(SENDING_LIST_MSG);
                 // 3 - writing the exit frame
-                if ((blist.error == LIST_NO_ERROR) && checked) {
+                //if ((blist.error == LIST_NO_ERROR) && checked) {
                     SHAREDFUNCTIONS_writeFrame(clientFD, 0x06, GPC_HEADER_CONOK, NULL);             
-                } else {
-                    SHAREDFUNCTIONS_writeFrame(clientFD, 0x06, GPC_HEADER_CONKO, NULL);
-                }             
+                //} else {
+                //    SHAREDFUNCTIONS_writeFrame(clientFD, 0x06, GPC_HEADER_CONKO, NULL);
+                //}             
                 printMsg(RENPONSE_SENT_LIST_MSG);
 
                 // 4 - Closing the client connection
+				if (NULL != data) {
+				    free(data);
+				    data = NULL;
+				}
                 close(clientFD);
                 return NULL;
-                break;
-            
             // Wrong type
             default:
                 // Send error frame
@@ -266,6 +256,10 @@ void *threadClient(void *c_fd) {
 		if (NULL != data) {
 		    free(data);
 			data = NULL;
+		}
+		if (NULL != header) {
+		    free(header);
+			header = NULL;
 		}
         
 		type = 0x07;
@@ -375,5 +369,5 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    return(0);
+    return (0);
 }
