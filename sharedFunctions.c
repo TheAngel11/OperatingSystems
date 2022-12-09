@@ -387,6 +387,10 @@ char updateUsersList(BidirectionalList *list, char *users) {
 		free(user);
 		user = NULL;
 		BIDIRECTIONALLIST_addAfter(list, element);
+		free(element.username);
+		element.username = NULL;
+		free(element.ip_network);
+		element.ip_network = NULL;
 	} while (i < (int) strlen(users));
 
 	return (1);

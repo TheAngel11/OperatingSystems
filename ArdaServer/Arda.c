@@ -139,7 +139,6 @@ void *threadClient(void *c_fd) {
     char type = 0x07;
     char *header = NULL;
     char *data = NULL;
-    int checked = 0;
     char *buffer = NULL;
     Element element;
 
@@ -221,22 +220,19 @@ void *threadClient(void *c_fd) {
                 // 1 - Searching the client
                 while (strcmp(BIDIRECTIONALLIST_get(&blist).username, data) != 0) {
                     BIDIRECTIONALLIST_next(&blist);
-                    checked = 1;
                 }
 
-                if (checked) {
-                    // 2 - Removing the client (critical region)
-                    BIDIRECTIONALLIST_remove(&blist);
-                }                
+                // 2 - Removing the client (critical region)
+                BIDIRECTIONALLIST_remove(&blist);
                 pthread_mutex_unlock(&mutex); 
                 
                 printMsg(SENDING_LIST_MSG);
                 // 3 - writing the exit frame
-                //if ((blist.error == LIST_NO_ERROR) && checked) {
+                if (blist.error == LIST_NO_ERROR) {
                     SHAREDFUNCTIONS_writeFrame(clientFD, 0x06, GPC_HEADER_CONOK, NULL);             
-                //} else {
-                //    SHAREDFUNCTIONS_writeFrame(clientFD, 0x06, GPC_HEADER_CONKO, NULL);
-                //}             
+                } else {
+                    SHAREDFUNCTIONS_writeFrame(clientFD, 0x06, GPC_HEADER_CONKO, NULL);
+                }             
                 printMsg(RENPONSE_SENT_LIST_MSG);
 
                 // 4 - Closing the client connection
