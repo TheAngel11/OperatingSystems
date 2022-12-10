@@ -339,9 +339,13 @@ char * SHAREDFUNCTIONS_getUsersFromList(BidirectionalList blist) {
 			size += n + 1;
 			data = (char *) realloc (data, sizeof(char) * size);
 			strcat(data, buffer);
-		}		
+		}
 		
 		BIDIRECTIONALLIST_next(&blist);
+		free(element.username);
+		element.username = NULL;
+		free(element.ip_network);
+		element.ip_network = NULL;
 	}
 
 	return (data);

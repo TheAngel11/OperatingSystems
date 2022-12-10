@@ -48,6 +48,8 @@ Arda arda;
 int listenFD = FD_NOT_FOUND;
 BidirectionalList blist;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_t *thread = NULL;
+int n_clients = 0;
 
 /*********************************************************************
 * @Purpose: Closes all the file descriptors of the clients.
@@ -55,15 +57,28 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 * @Return: ----
 *********************************************************************/
 void closeAllClientFD() {
-    int clientFD;
+	Element e;
 
     BIDIRECTIONALLIST_goToHead(&blist);
 
     while (BIDIRECTIONALLIST_isValid(blist)) {
-        clientFD = BIDIRECTIONALLIST_get(&blist).clientFD;
-        close(clientFD);
+        e = BIDIRECTIONALLIST_get(&blist);
+        close(e.clientFD);
         BIDIRECTIONALLIST_next(&blist);
+		free(e.username);
+		e.username = NULL;
+		free(e.ip_network);
+		e.ip_network = NULL;
     } 
+}
+
+void destroyThreads() {
+    int i = 0;
+
+	for (i = 0; i < n_clients; i++) {
+	    pthread_detach(thread[i]);
+		pthread_cancel(thread[i]);
+	}
 }
 
 /*********************************************************************
@@ -72,13 +87,17 @@ void closeAllClientFD() {
 * @Return: ----
 *********************************************************************/
 void sigIntHandler() {   
+    closeAllClientFD();
+
     if (listenFD != FD_NOT_FOUND) {
         close(listenFD);
     }
 
-    closeAllClientFD(); 
     BIDIRECTIONALLIST_destroy(&blist);
     SHAREDFUNCTIONS_freeArda(&arda);
+	destroyThreads();
+	free(thread);
+	thread = NULL;
     
     printMsg(DISCONNECT_ARDA_MSG);
     printMsg(CLOSING_ARDA_MSG);
@@ -134,8 +153,8 @@ int readArda(char *filename, Arda *arda) {
 * @Params: in: c_fd = file descriptor of the client
 * @Return: ----
 *********************************************************************/
-void *threadClient(void *c_fd) {
-    int clientFD = *((int *) c_fd);
+void *threadClient(void *args) {
+    int client_fd = *((int *) args);
     char type = 0x07;
     char *header = NULL;
     char *data = NULL;
@@ -143,7 +162,7 @@ void *threadClient(void *c_fd) {
     Element element;
 
     while (1) {
-        SHAREDFUNCTIONS_readFrame(clientFD, &type, &header, &data);
+        SHAREDFUNCTIONS_readFrame(client_fd, &type, &header, &data);
 
         switch (type) {
             // Connection request
@@ -151,7 +170,7 @@ void *threadClient(void *c_fd) {
 				// get username, IP, port and PID
 				parseUserFromFrame(data, &element);
                 // get clientFD
-				element.clientFD = clientFD;
+				element.clientFD = client_fd;
 				free(data);
 				data = NULL;
 
@@ -178,15 +197,17 @@ void *threadClient(void *c_fd) {
                 // Write connexion frame
                 if (blist.error == LIST_NO_ERROR) {
 					data = SHAREDFUNCTIONS_getUsersFromList(blist);
-					SHAREDFUNCTIONS_writeFrame(clientFD, 0x01, GPC_HEADER_CONOK, data);   
+					SHAREDFUNCTIONS_writeFrame(client_fd, 0x01, GPC_HEADER_CONOK, data); 
+					free(data);
+					data = NULL;
                 } else {
-                    SHAREDFUNCTIONS_writeFrame(clientFD, 0x01, GPC_HEADER_CONKO, NULL);
+                    SHAREDFUNCTIONS_writeFrame(client_fd, 0x01, GPC_HEADER_CONKO, NULL);
                 }
                 
                 printMsg(RESPONSE_SENT_LIST_MSG);
                 break;
             
-            // Update list petition            
+            // Update list petition
             case 0x02:
                 // data is the username
                 asprintf(&buffer, PETITION_UPDATE_MSG, data, data);
@@ -198,7 +219,7 @@ void *threadClient(void *c_fd) {
 
                 // We don't need to apply mutex because the list is not modified
 				data = SHAREDFUNCTIONS_getUsersFromList(blist);
-                SHAREDFUNCTIONS_writeFrame(clientFD, 0x02, GPC_UPDATE_USERS_HEADER_OUT, data);     
+                SHAREDFUNCTIONS_writeFrame(client_fd, 0x02, GPC_UPDATE_USERS_HEADER_OUT, data);     
                 break;
             
             // Types not implemented yet
@@ -225,29 +246,45 @@ void *threadClient(void *c_fd) {
                 // Critical region
                 BIDIRECTIONALLIST_goToHead(&blist);
                 // 1 - Searching the client
-                while (strcmp(BIDIRECTIONALLIST_get(&blist).username, data) != 0) {
+				element = BIDIRECTIONALLIST_get(&blist);
+                
+				while (strcmp(element.username, data) != 0) {
                     BIDIRECTIONALLIST_next(&blist);
+					free(element.username);
+					element.username = NULL;
+					free(element.ip_network);
+					element.ip_network = NULL;
+					element = BIDIRECTIONALLIST_get(&blist);
                 }
-
+				
+				free(element.username);
+				element.username = NULL;
+				free(element.ip_network);
+				element.ip_network = NULL;
                 // 2 - Removing the client (critical region)
                 BIDIRECTIONALLIST_remove(&blist);
-                pthread_mutex_unlock(&mutex); 
-                
+                pthread_mutex_unlock(&mutex);
                 printMsg(SENDING_LIST_MSG);
+
                 // 3 - writing the exit frame
                 if (blist.error == LIST_NO_ERROR) {
-                    SHAREDFUNCTIONS_writeFrame(clientFD, 0x06, GPC_HEADER_CONOK, NULL);             
+                    SHAREDFUNCTIONS_writeFrame(client_fd, 0x06, GPC_HEADER_CONOK, NULL);             
                 } else {
-                    SHAREDFUNCTIONS_writeFrame(clientFD, 0x06, GPC_HEADER_CONKO, NULL);
+                    SHAREDFUNCTIONS_writeFrame(client_fd, 0x06, GPC_HEADER_CONKO, NULL);
                 }             
                 printMsg(RESPONSE_SENT_LIST_MSG);
 
                 // 4 - Closing the client connection
+				free(header);
+				header = NULL;
 				if (NULL != data) {
 				    free(data);
 				    data = NULL;
 				}
-                close(clientFD);
+                pthread_mutex_lock(&mutex);
+				n_clients--;
+                pthread_mutex_unlock(&mutex);
+				close(client_fd);
                 return NULL;
             // Unknown command
             default:
@@ -271,11 +308,10 @@ void *threadClient(void *c_fd) {
 }
 
 int main(int argc, char* argv[]) {
-    int clientFD = FD_NOT_FOUND;
     char *buffer = NULL;
     int read_ok = ARDA_KO;
-    pthread_t thread;
     struct sockaddr_in server;
+	int client_fd = -1;
     
     if (MIN_N_ARGS > argc) {
         printMsg(COLOR_RED_TXT);
@@ -351,21 +387,40 @@ int main(int argc, char* argv[]) {
 
     // Running the server
     while (1) {
-        // Accept (Blocks the system until a connection request arrives)
-        if ((clientFD = accept(listenFD, (struct sockaddr*) NULL, NULL)) < 0) {
+		client_fd = accept(listenFD, (struct sockaddr*) NULL, NULL);
+		
+		// Accept (Blocks the system until a connection request arrives)
+        if (client_fd < 0) {
             printMsg(COLOR_RED_TXT);
             printMsg(ERROR_ACCEPTING_MSG);
             printMsg(COLOR_DEFAULT_TXT);
         } else {
+	        if (n_clients > 0) {
+		        // add thread to array
+				n_clients++;
+				thread = (pthread_t *) realloc (thread, sizeof(pthread_t) * n_clients);
+			} else {
+		        // init threads array
+				if (NULL != thread) {
+			        free(thread);
+					thread = NULL;
+				}
+
+				n_clients++;
+				thread = (pthread_t *) malloc (sizeof(pthread_t));
+			}
+
             // Creating the thread
-            if (pthread_create(&thread, NULL, threadClient, &clientFD) != 0) {
+            if (pthread_create(&thread[n_clients - 1], NULL, threadClient, &client_fd) != 0) {
                 printMsg(COLOR_RED_TXT);
                 printMsg(ERROR_CREATING_THREAD_MSG);
                 printMsg(COLOR_DEFAULT_TXT);
                 SHAREDFUNCTIONS_freeArda(&arda);
                 close(listenFD);
-                closeAllClientFD();
-                BIDIRECTIONALLIST_destroy(&blist);
+				closeAllClientFD();
+				free(thread);
+				thread = NULL;
+				BIDIRECTIONALLIST_destroy(&blist);
                 return (-1);
             }
         }

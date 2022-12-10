@@ -3,7 +3,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 09/12/2022
+* @Last change: 10/12/2022
 *********************************************************************/
 #define _GNU_SOURCE 1
 #include <stdio.h>
@@ -200,7 +200,7 @@ int main(int argc, char* argv[]) {
 		    printMsg(COLOR_RED_TXT);
 			printMsg(ARDA_CONNECTION_DENIED_MSG);
 			printMsg(COLOR_DEFAULT_TXT);
-			//
+			// free mem
 			free(buffer);
 			buffer = NULL;
 			free(header);
