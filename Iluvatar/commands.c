@@ -4,7 +4,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 17/11/2022
+* @Last change: 10/12/2022
 *********************************************************************/
 #include "commands.h"
 
@@ -153,41 +153,149 @@ int identifyCommand(char **args, int n_args) {
 
 /*********************************************************************
 * @Purpose: Executes a custom command given its ID. Currently only
+* @Params: in: id = ID of the custom command to execute
+* @Return: ----
+*********************************************************************/
+BidirectionalList getListFromString(char *users, int length) {
+    BidirectionalList list = BIDIRECTIONALLIST_create();
+	Element user;
+	char *buffer = NULL;
+	char *tmp = NULL;
+	int i = 0, j = 0;
+
+	while (i < length) {
+	    // get single user
+		buffer = SHAREDFUNCTIONS_splitString(users, GPC_USERS_SEPARATOR, &i);
+		user.username = SHAREDFUNCTIONS_splitString(buffer, GPC_DATA_SEPARATOR, &j);
+		user.ip_network = SHAREDFUNCTIONS_splitString(buffer, GPC_DATA_SEPARATOR, &j);
+		tmp = SHAREDFUNCTIONS_splitString(buffer, GPC_DATA_SEPARATOR, &j);
+		user.port = atoi(tmp);
+		free(tmp);
+		tmp = NULL;
+		tmp = SHAREDFUNCTIONS_splitString(buffer, GPC_DATA_SEPARATOR, &j);
+		user.pid = atoi(tmp);
+		free(tmp);
+		tmp = NULL;
+		// add to list
+		BIDIRECTIONALLIST_addAfter(&list, user);
+		// next user
+		free(buffer);
+		buffer = NULL;
+		free(user.username);
+		user.username = NULL;
+		free(user.ip_network);
+		user.ip_network = NULL;
+		j = 0;
+	}
+
+	return (list);
+}
+
+/*********************************************************************
+* @Purpose: Prints a list of the connected users.
+* @Params: in: users = list of connected users
+* @Return: ----
+*********************************************************************/
+void printUsersList(BidirectionalList users) {
+	char *buffer = NULL;
+	Element user;
+	int n = 0, i = 1;
+
+	n = BIDIRECTIONALLIST_getNumberOfElements(users);
+	asprintf(&buffer, LIST_USERS_N_USERS_MSG, n);
+	printMsg(buffer);
+	free(buffer);
+	buffer = NULL;
+
+	if (n > 0) {
+	    BIDIRECTIONALLIST_goToHead(&users);
+
+		while (BIDIRECTIONALLIST_isValid(users)) {
+	        user = BIDIRECTIONALLIST_get(&users);
+			asprintf(&buffer, "%d. %s %s %d %s %d\n", i, user.username, user.ip_network, user.port, user.ip_network, user.pid);
+			printMsg(buffer);
+			free(buffer);
+			buffer = NULL;
+			// next user
+			BIDIRECTIONALLIST_next(&users);
+			i++;
+			// free element
+			free(user.username);
+			user.username = NULL;
+			free(user.ip_network);
+			user.ip_network = NULL;
+		}
+
+		printMsg("\n");
+	}
+}
+
+/*********************************************************************
+* @Purpose: Executes a custom command given its ID. Currently only
 *           prints the selected command.
 * @Params: in: id = ID of the custom command to execute
 * @Return: ----
 *********************************************************************/
-void executeCustomCommand(int id) {
+char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, BidirectionalList *clients) {
     char *buffer = NULL;
+	char *header = NULL;
+	char type = 0x07;			// set to UNKNOWN by default
 
 	switch (id) {
 	    case IS_UPDATE_USERS_CMD:
-		    asprintf(&buffer, "%s\n", UPDATE_USERS_CMD);
-			printMsg(buffer);
+			printMsg(UPDATE_USERS_SUCCESS_MSG);
+			// request list
+			SHAREDFUNCTIONS_writeFrame(fd_dest, 0x02, GPC_UPDATE_USERS_HEADER_IN, iluvatar.username);
+			// get list
+			SHAREDFUNCTIONS_readFrame(fd_dest, &type, &header, &buffer);
+			// update list
+			BIDIRECTIONALLIST_destroy(clients);
+			*clients = getListFromString(buffer, (int) strlen(buffer));
 			free(buffer);
+			buffer = NULL;
 			break;
 		case IS_LIST_USERS_CMD:
-		    asprintf(&buffer, "%s\n", LIST_USERS_CMD);
-			printMsg(buffer);
-			free(buffer);
+			printUsersList(*clients);
 			break;
 		case IS_SEND_MSG_CMD:
 		    asprintf(&buffer, "%s\n", SEND_MSG_CMD);
 			printMsg(buffer);
 			free(buffer);
+			buffer = NULL;
 			break;
 		case IS_SEND_FILE_CMD:
 		    asprintf(&buffer, "%s\n", SEND_FILE_CMD);
 			printMsg(buffer);
 			free(buffer);
+			buffer = NULL;
 			break;
 		default:
 		    // exit command
-		    asprintf(&buffer, "%s\n", EXIT_CMD);
-			printMsg(buffer);
-			free(buffer);
+			// notify Arda
+			SHAREDFUNCTIONS_writeFrame(fd_dest, 0x06, GPC_EXIT_HEADER, iluvatar.username);
+			// get answer
+			SHAREDFUNCTIONS_readFrame(fd_dest, &type, &header, NULL);
+			
+			if (0 == strcmp(header, GPC_HEADER_CONKO)) {
+			    printMsg(COLOR_RED_TXT);
+				printMsg(ERROR_DISCONNECT_ILUVATAR_MSG);
+				printMsg(COLOR_DEFAULT_TXT);
+				free(header);
+				header = NULL;
+				return (1);
+			}
+
+			printMsg(EXIT_ARDA_MSG);
+
 			break;
 	}
+
+	if (NULL != header) {
+	    free(header);
+		header = NULL;
+	}
+
+	return (0);
 }
 
 /*********************************************************************
@@ -215,10 +323,13 @@ void freeMemCmd(char ***args, int *n_args) {
 /*********************************************************************
 * @Purpose: Executes the command entered by the user.
 * @Params: in: user_input = entire command (with args) entered by user
+*          in/out: iluvatar = IluvatarSon issuing command
+*		   in: fd_arda = Arda's file descriptor (connected to server)
 * @Return: 0 if EXIT command entered, otherwise 1.
 *********************************************************************/
-int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar) {
+int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda, BidirectionalList *users_list) {
     char **command = NULL;
+	char error = 0;
 	int n_args = 0, cmd_id = 0;
 	int pid = -1, status = 0;
 
@@ -228,9 +339,9 @@ int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar) {
 	
 	if ((ERROR_CMD_ARGS != cmd_id) && (IS_NOT_CUSTOM_CMD != cmd_id)) {
 	    // execute custom command
-		executeCustomCommand(cmd_id);
+		error = executeCustomCommand(cmd_id, fd_arda, *iluvatar, users_list);
 		
-		if (cmd_id == IS_EXIT_CMD) {
+		if ((cmd_id == IS_EXIT_CMD) && !error) {
 			freeMemCmd(&command, &n_args);
 			SHAREDFUNCTIONS_freeIluvatarSon(iluvatar);
 			return (1);
@@ -260,6 +371,7 @@ int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar) {
 				if (0 != WEXITSTATUS(status)) {
 					// Invalid Linux command
 					printMsg(UNKNOWN_CMD_MSG);
+					SHAREDFUNCTIONS_writeFrame(fd_arda, 0x07, GPC_UNKNOWN_CMD_HEADER, NULL);
 				}
 				break;
 		}	

@@ -1,4 +1,6 @@
 *.o
 IluvatarSon
+Arda
 /files
 /tests
+/.vscode

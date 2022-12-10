@@ -3,37 +3,49 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 23/10/2022
+* @Last change: 10/12/2022
 *********************************************************************/
 #define _GNU_SOURCE 1
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
+#include "../bidirectionallist.h"
 #include "commands.h"
 #include "../sharedFunctions.h"
 
-#define MIN_N_ARGS 		2
-#define WELCOME_MSG 	"\n%sWelcome %s, son of Iluvatar\n"
-#define CMD_LINE_PROMPT	"%s%c "
-#define ILUVATARSON_OK	0		
-#define ILUVATARSON_KO	-1
+#define MIN_N_ARGS 					2
+#define WELCOME_MSG 				"\n%sWelcome %s, son of Iluvatar\n"
+#define CMD_LINE_PROMPT				"%s%c "
+#define ARDA_CONNECTION_DENIED_MSG	"Connection denied by server\n"
+#define ILUVATARSON_OK				0
+#define ILUVATARSON_KO				-1
 
 IluvatarSon iluvatarSon;
 char *iluvatar_command = NULL;
+int fd_arda = -1;
+BidirectionalList users_list;
 
 /*********************************************************************
- @Purpose: Free memory when SIGINT received.
- @Params: ----
- @Return: ----
+* @Purpose: Free memory when SIGINT received.
+* @Params: ----
+* @Return: ----
 *********************************************************************/
 void sigintHandler() {
     SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
 	if (NULL != iluvatar_command) {
 	    free(iluvatar_command);
 	}
+
+	close(fd_arda);
 	printMsg(COLOR_DEFAULT_TXT);
 	
+	BIDIRECTIONALLIST_destroy(&users_list);
+
 	signal(SIGINT, SIG_DFL);
 	raise(SIGINT);
 }
@@ -103,8 +115,12 @@ int main(int argc, char* argv[]) {
     char *buffer = NULL;
 	char *command = iluvatar_command;
 	int exit_program = 0, read_ok = ILUVATARSON_KO;
+	struct sockaddr_in server;
+	char *header = NULL;
+	char type = 0x07;
 	
 	iluvatarSon = newIluvatarSon();
+	users_list = BIDIRECTIONALLIST_create();
 	// Configure SIGINT
 	signal(SIGINT, sigintHandler);
 	
@@ -121,7 +137,7 @@ int main(int argc, char* argv[]) {
 
 		printMsg(COLOR_DEFAULT_TXT);
 	} else {
-	    // read input file
+		// read input file
 		read_ok = readIluvatarSon(argv[1], &iluvatarSon);
 		
 		if (ILUVATARSON_KO == read_ok) {
@@ -134,11 +150,79 @@ int main(int argc, char* argv[]) {
 			SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
 			return (0);
 		}
+		
+/* START TEST */
+        // config socket
+		if ((fd_arda = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+	        printMsg(COLOR_RED_TXT);
+			printMsg(ERROR_CREATING_SOCKET_MSG);
+			printMsg(COLOR_DEFAULT_TXT);
+			SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
+			return (1);
+		}
 
+		bzero(&server, sizeof(server));
+		server.sin_family = AF_INET;
+		server.sin_port = htons(iluvatarSon.arda_port);
+		if (inet_pton(AF_INET, iluvatarSon.arda_ip_address, &server.sin_addr) < 0) {
+	        printMsg(COLOR_RED_TXT);
+			printMsg(ERROR_IP_CONFIGURATION_MSG);
+			printMsg(COLOR_DEFAULT_TXT);
+			// finish execution
+			SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
+			close(fd_arda);
+			return (1);
+		}
+
+		// connect to server
+		if (connect(fd_arda, (struct sockaddr*) &server, sizeof(server)) < 0) {
+	        printMsg(COLOR_RED_TXT);
+			printMsg(ERROR_SERVER_CONNECTION_MSG);
+			printMsg(COLOR_DEFAULT_TXT);
+			// finish execution
+			BIDIRECTIONALLIST_destroy(&users_list);
+			SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
+			close(fd_arda);
+			return (1);
+		}
+/* END TEST */
+
+		// notify connection to Arda
+		asprintf(&buffer, "%s%c%s%c%d%c%d", iluvatarSon.username, GPC_DATA_SEPARATOR, iluvatarSon.ip_address, GPC_DATA_SEPARATOR, iluvatarSon.port, GPC_DATA_SEPARATOR, getpid());
+		SHAREDFUNCTIONS_writeFrame(fd_arda, 0x01, GPC_CONNECT_SON_HEADER, buffer);
+		free(buffer);
+		buffer = NULL;
+		// wait for answer
+		SHAREDFUNCTIONS_readFrame(fd_arda, &type, &header, &buffer);
+
+		// check connection
+		if (0 == strcmp(header, GPC_HEADER_CONKO)) {
+		    printMsg(COLOR_RED_TXT);
+			printMsg(ARDA_CONNECTION_DENIED_MSG);
+			printMsg(COLOR_DEFAULT_TXT);
+			// free mem
+			free(buffer);
+			buffer = NULL;
+			free(header);
+			header = NULL;
+			SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
+			BIDIRECTIONALLIST_destroy(&users_list);
+			close(fd_arda);
+
+			return (1);
+		}
+		
+		free(header);
+		header = NULL;
+		// update list of users
+		updateUsersList(&users_list, buffer);
+		free(buffer);
+		buffer = NULL;
 		// welcome user
 		asprintf(&buffer, WELCOME_MSG, COLOR_DEFAULT_TXT, iluvatarSon.username);
 		printMsg(buffer);
 		free(buffer);
+		buffer = NULL;
 		
 		// get commands
 		while (!exit_program) {
@@ -146,20 +230,24 @@ int main(int argc, char* argv[]) {
 		    asprintf(&buffer, CMD_LINE_PROMPT, COLOR_CLI_TXT, CMD_ID_BYTE);
 		    printMsg(buffer);
 		    free(buffer);
+			buffer = NULL;
 		    // get command
 			command = SHAREDFUNCTIONS_readUntil(STDIN_FILENO, CMD_END_BYTE);
 		    printMsg(COLOR_DEFAULT_TXT);
 		    // execute command
-		    exit_program = COMMANDS_executeCommand(command, &iluvatarSon);
+		    exit_program = COMMANDS_executeCommand(command, &iluvatarSon, fd_arda, &users_list);
 
 		    // free mem
 		    if (NULL != command) {
 		        free(command);
+				command = NULL;
 		    }
 		}
 	}
 
     SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
+	BIDIRECTIONALLIST_destroy(&users_list);
+	close(fd_arda);
 
 	return (0);
 }

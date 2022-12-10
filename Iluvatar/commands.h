@@ -12,6 +12,7 @@
 
 #include "../definitions.h"
 #include "../sharedFunctions.h"
+#include "../bidirectionallist.h"
 
 /* CUSTOM COMMANDS */
 #define UPDATE_USERS_CMD		"UPDATE USERS\0"
@@ -30,6 +31,9 @@
 #define ERROR_SEND_MSG_MORE_ARGS	"ERROR: \"SEND MSG\" has too many arguments\n"
 #define ERROR_SEND_FILE_LESS_ARGS	"ERROR: \"SEND FILE\" requires a user and a file\n"
 #define ERROR_SEND_FILE_MORE_ARGS	"ERROR: \"SEND FILE\" has too many arguments\n"
+#define UPDATE_USERS_SUCCESS_MSG	"Users list updated\n"
+#define LIST_USERS_N_USERS_MSG 		"There are %d children of Iluvatar connected:\n"
+#define EXIT_ARDA_MSG				"Disconnecting from Arda. See you soon, son of Iluvatar\n\n"
 
 /* Number of required args for custom command */
 #define UPDATE_USERS_N_ARGS		2
@@ -47,6 +51,13 @@
 #define IS_NOT_CUSTOM_CMD		0
 #define ERROR_CMD_ARGS			-1
 
-int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar);
+/*********************************************************************
+* @Purpose: Executes the command entered by the user.
+* @Params: in: user_input = entire command (with args) entered by user
+*          in/out: iluvatar = IluvatarSon issuing command
+*		   in: fd_arda = Arda's file descriptor (connected to server)
+* @Return: 0 if EXIT command entered, otherwise 1.
+*********************************************************************/
+int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda, BidirectionalList *users_list);
 
 #endif
