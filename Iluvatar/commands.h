@@ -31,6 +31,7 @@
 #define ERROR_SEND_MSG_MORE_ARGS	"ERROR: \"SEND MSG\" has too many arguments\n"
 #define ERROR_SEND_FILE_LESS_ARGS	"ERROR: \"SEND FILE\" requires a user and a file\n"
 #define ERROR_SEND_FILE_MORE_ARGS	"ERROR: \"SEND FILE\" has too many arguments\n"
+#define LIST_USERS_N_USERS_MSG 		"There are %d children of Iluvatar connected:\n"
 
 /* Number of required args for custom command */
 #define UPDATE_USERS_N_ARGS		2

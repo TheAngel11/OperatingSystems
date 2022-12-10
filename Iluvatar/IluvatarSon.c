@@ -180,6 +180,7 @@ int main(int argc, char* argv[]) {
 			printMsg(ERROR_SERVER_CONNECTION_MSG);
 			printMsg(COLOR_DEFAULT_TXT);
 			// finish execution
+			BIDIRECTIONALLIST_destroy(&users_list);
 			SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
 			close(fd_arda);
 			return (1);

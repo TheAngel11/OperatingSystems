@@ -3,7 +3,7 @@
 * @Authors: Angel Garcia Gascon
 *           Claudia Lajara Silvosa
 * @Date:
-* @Last change: 09/12/2022
+* @Last change: 10/12/2022
 *********************************************************************/
 #define _GNU_SOURCE 1
 #include <sys/socket.h>
@@ -169,6 +169,10 @@ void *threadClient(void *c_fd) {
                 // Adding the client to the list (critical region)
                 BIDIRECTIONALLIST_addAfter(&blist, element);
                 pthread_mutex_unlock(&mutex);
+				free(element.username);
+				element.username = NULL;
+				free(element.ip_network);
+				element.ip_network = NULL;
 
                 printMsg(SENDING_LIST_MSG);
                 // Write connexion frame

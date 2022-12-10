@@ -4,7 +4,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 18/10/2022
-* @Last change: 09/12/2022
+* @Last change: 10/12/2022
 *********************************************************************/
 #include "sharedFunctions.h"
 
@@ -220,7 +220,7 @@ char SHAREDFUNCTIONS_writeFrame(int fd, char type, char *header, char *data) {
 	    length = strlen(data);
 	}
 
-	size = 1 + ((int) strlen(header)) + 2 + 2 + length;// + 1;
+	size = 1 + ((int) strlen(header)) + 2 + 2 + length;
 	frame = (char *) malloc (sizeof(char) * size);
 
 	// write type (1 byte)
@@ -268,7 +268,6 @@ char SHAREDFUNCTIONS_writeFrame(int fd, char type, char *header, char *data) {
 		i += 2;
 	}
 
-	//frame[i] = '\0';
 	// write entire frame
 	write(fd, frame, size);
 	free(frame);
@@ -331,10 +330,11 @@ char * SHAREDFUNCTIONS_getUsersFromList(BidirectionalList blist) {
 
 	while (BIDIRECTIONALLIST_isValid(blist)) {
 		element = BIDIRECTIONALLIST_get(&blist);
+
 		if (flag_first) {
 			size = asprintf(&data, "%s&%s&%d&%d", element.username, element.ip_network, element.port, (int) element.pid);
 			flag_first = 0;
-		} else{
+		} else {
 			n = asprintf(&buffer, "#%s&%s&%d&%d", element.username, element.ip_network, element.port, (int) element.pid);
 			size += n + 1;
 			data = (char *) realloc (data, sizeof(char) * size);

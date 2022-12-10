@@ -4,7 +4,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 09/12/2022
+* @Last change: 10/12/2022
 *********************************************************************/
 #include "commands.h"
 
@@ -195,17 +195,34 @@ BidirectionalList getListFromString(char *users, int length) {
 void printUsersList(BidirectionalList users) {
 	char *buffer = NULL;
 	Element user;
-	int i = 1;
+	int n = 0, i = 1;
 
-	BIDIRECTIONALLIST_goToHead(&users);
+	n = BIDIRECTIONALLIST_getNumberOfElements(users);
+	asprintf(&buffer, LIST_USERS_N_USERS_MSG, n);
+	printMsg(buffer);
+	free(buffer);
+	buffer = NULL;
 
-	while (users.error != LIST_ERROR_END) {
-	    user = BIDIRECTIONALLIST_get(&users);
-		asprintf(&buffer, "%d. %s %s %d %s %d\n", i, user.username, user.ip_network, user.port, user.ip_network , user.pid);
-		printMsg(buffer);
-		free(buffer);
-		buffer = NULL;
-		BIDIRECTIONALLIST_next(&users);
+	if (n > 0) {
+	    BIDIRECTIONALLIST_goToHead(&users);
+
+		while (BIDIRECTIONALLIST_isValid(users)) {
+	        user = BIDIRECTIONALLIST_get(&users);
+			asprintf(&buffer, "%d. %s %s %d %s %d\n", i, user.username, user.ip_network, user.port, user.ip_network, user.pid);
+			printMsg(buffer);
+			free(buffer);
+			buffer = NULL;
+			// next user
+			BIDIRECTIONALLIST_next(&users);
+			i++;
+			// free element
+			free(user.username);
+			user.username = NULL;
+			free(user.ip_network);
+			user.ip_network = NULL;
+		}
+
+		printMsg("\n");
 	}
 }
 
@@ -236,10 +253,6 @@ char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 			buffer = NULL;
 			break;
 		case IS_LIST_USERS_CMD:
-		    asprintf(&buffer, "%s\n", LIST_USERS_CMD);
-			printMsg(buffer);
-			free(buffer);
-			buffer = NULL;
 			printUsersList(*clients);
 			break;
 		case IS_SEND_MSG_CMD:
