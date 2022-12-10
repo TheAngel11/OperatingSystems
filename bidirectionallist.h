@@ -22,9 +22,11 @@
 #define _BIDIRECTIONALLIST_H_
 
 // Libraries
+#define _GNU_SOURCE 1
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <string.h>
 
 #include "definitions.h"
 
@@ -78,7 +80,9 @@ BidirectionalList BIDIRECTIONALLIST_create();
 void	BIDIRECTIONALLIST_addBefore(BidirectionalList * list, Element element);
 void	BIDIRECTIONALLIST_addAfter (BidirectionalList * list, Element element);
 Element	BIDIRECTIONALLIST_get(BidirectionalList * list);
+int		BIDIRECTIONALLIST_getNumberOfElements(BidirectionalList list);
 void	BIDIRECTIONALLIST_remove(BidirectionalList * list);
+void	BIDIRECTIONALLIST_makeEmpty(BidirectionalList *list);
 int		BIDIRECTIONALLIST_isEmpty(BidirectionalList list);
 
 int 	BIDIRECTIONALLIST_isValid(BidirectionalList list);
@@ -90,7 +94,5 @@ void	BIDIRECTIONALLIST_goToTail(BidirectionalList * list);
 void	BIDIRECTIONALLIST_previous(BidirectionalList * list);
 
 void 	BIDIRECTIONALLIST_destroy(BidirectionalList * list);
-
-int		BIDIRECTIONALLIST_getErrorCode(BidirectionalList list);
 
 #endif

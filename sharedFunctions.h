@@ -64,10 +64,9 @@ void SHAREDFUNCTIONS_freeArda(Arda *arda);
 * @Params: in: fd 	= file descriptor of the client
 *          in/out: type = type of the frame passed by reference
 *          in/out: header = header of the frame passed by reference
-*          in/out: data = data of the frame passed by reference     
-* @Return: ----
+* @Return: Returns the data of the frame.
 ***********************************************************************/
-void SHAREDFUNCTIONS_readFrame(int fd, int *type, char *header, char *data);
+char SHAREDFUNCTIONS_readFrame(int fd, char *type, char **header, char **data);
 
 /**********************************************************************
  * @Purpose: Reads from a file descriptor until a given char is found.
@@ -77,7 +76,7 @@ void SHAREDFUNCTIONS_readFrame(int fd, int *type, char *header, char *data);
  * 			in/out: data = data of the frame passed by reference
  * @Return: ----
  * ********************************************************************/
-void SHAREDFUNCTIONS_writeFrame(int fd, int type, char *header, char *data);
+char SHAREDFUNCTIONS_writeFrame(int fd, char type, char *header, char *data);
 
 /**********************************************************************
  * @Purpose: Parses the data field of a frame
@@ -88,7 +87,7 @@ void SHAREDFUNCTIONS_writeFrame(int fd, int type, char *header, char *data);
  *  		in/out: pid = the pid of the client passed by reference
  * @Return: ----
  * ********************************************************************/
-void SHAREDFUNCTIONS_parseDataFieldConnection(char *data, char *username, char *ip, int *port, pid_t *pid);
+//void SHAREDFUNCTIONS_parseDataFieldConnection(char *data, char *username, char *ip, int *port, pid_t *pid);
 
 /**********************************************************************
  * @Purpose: Writes the data field of a frame when a client connects or 
@@ -97,7 +96,15 @@ void SHAREDFUNCTIONS_parseDataFieldConnection(char *data, char *username, char *
  * @Return: data = the data field of the frame with all the clients 
  * 				   connected
  * ********************************************************************/
-char * SHAREDFUNCTIONS_writeDataFieldUpdate(BidirectionalList blist);
+char * SHAREDFUNCTIONS_getUsersFromList(BidirectionalList blist);
+
+/*
+*/
+void parseUserFromFrame(char *data, Element *e);
+
+/*
+*/
+char updateUsersList(BidirectionalList *list, char *users);
 
 /**********************************************************************
  * @Purpose: Reads the data field of a frame when a client connects

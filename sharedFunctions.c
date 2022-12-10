@@ -4,7 +4,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 18/10/2022
-* @Last change: 17/11/2022
+* @Last change: 10/12/2022
 *********************************************************************/
 #include "sharedFunctions.h"
 
@@ -142,140 +142,138 @@ void SHAREDFUNCTIONS_freeArda(Arda *arda) {
 
 /**********************************************************************
 * @Purpose: Reads the network frame that the client have sent.
-* @Params: in: fd 	= the file descriptor we want to read from
+* @Params: in: fd = the file descriptor we want to read from 
 *          in/out: type = type of the frame passed by reference
 *          in/out: header = header of the frame passed by reference
-*          in/out: data = data of the frame passed by reference
-* @Return: ----
+* @Return: Returns the data if the frame.
 ***********************************************************************/
-void SHAREDFUNCTIONS_readFrame(int fd, int *type, char *header, char *data) {
+char SHAREDFUNCTIONS_readFrame(int fd, char *type, char **header, char **data) {
 	char *buffer = NULL;
-	char byte;
-	int length = 0;
+	char byte = 0x07;
+	unsigned short length = 0;
 
 	// read type (1 byte)
 	read(fd, &byte, sizeof(char));
 
 	switch (byte) {
-	case 'A':
-		*type = 10;
-		break;
-	case 'B':
-		*type = 11;
-		break;
-	case 'C':
-		*type = 12;
-		break;
-	case 'D':
-		*type = 13;
-		break;
-	case 'E':
-		*type = 14;
-		break;
-	case 'F':
-		*type = 15;
-		break;
-	default:
-		*type = byte - '0';
-		break;
+	    case 'A':
+		    *type = 0x0A;
+			break;
+		case 'B':
+		    *type = 0x0B;
+			break;
+		case 'C':
+		    *type = 0x0C;
+			break;
+		case 'D':
+		    *type = 0x0D;
+			break;
+		case 'E':
+		    *type = 0x0E;
+			break;
+		case 'F':
+		    *type = 0x0F;
+			break;
+		default:
+		    *type = byte - '0';
+			break;
 	}
-
+	
+	// skip '['
+	read(fd, &byte, sizeof(char));
+	
 	// read header
 	buffer = SHAREDFUNCTIONS_readUntil(fd, ']');
-
-	// removes first character
-	buffer = buffer + 1;
-	// removes last character
-	buffer[strlen(buffer) - 1] = '\0';
-
-	header = (char *) malloc (sizeof(char) * (strlen(buffer) + 1));
-	strcpy(header, buffer);
+	*header = strdup(buffer);
 	free(buffer);
-
+	buffer = NULL;
 	// read lenght (2 bytes)
-	read(fd, buffer, sizeof(char) * 2);
-	length = atoi(buffer);
-	free(buffer);
+	read(fd, &length, 2);
 
 	// read data (lenght bytes)
-	read(fd, buffer, sizeof(char) * length);
+	if (0 < length) {
+	    *data = (char *) malloc (sizeof(char) * (length + 1));
+		read(fd, *data, sizeof(char) * length);
+		(*data)[length] = '\0';
+	}
 
-	data = (char *) malloc (sizeof(char) * (strlen(buffer) + 1));
-	strcpy(data, buffer);
-	free(buffer);
+	return (1);
 }
 
 /**********************************************************************
- * @Purpose: Reads from a file descriptor until a given char is found.
- * @Params: in: fd = the file descriptor we want to read from
- * 			in: type = the type of the frame
- * 			in/out: header = header of the frame passed by reference
- * 			in/out: data = data of the frame passed by reference
- * @Return: ----
- * ********************************************************************/
-void SHAREDFUNCTIONS_writeFrame(int fd, int type, char *header, char *data) {
-	char *buffer = NULL;
+* @Purpose: Reads from a file descriptor until a given char is found.
+* @Params: in: fd = the file descriptor we want to read from
+* 			in: type = the type of the frame
+* 			in/out: header = header of the frame passed by reference
+* 			in/out: data = data of the frame passed by reference
+* @Return: ----
+**********************************************************************/
+char SHAREDFUNCTIONS_writeFrame(int fd, char type, char *header, char *data) {
 	char *frame = NULL;
-	int length = 0;
+	char byte = 0;
+	unsigned short length = 0;
+	char length_lsB = 0, length_msB = 0;
+	int i = 0, j = 0;
+	int size = 0;
+
+	if (NULL != data) {
+	    length = strlen(data);
+	}
+
+	size = 1 + ((int) strlen(header)) + 2 + 2 + length;
+	frame = (char *) malloc (sizeof(char) * size);
 
 	// write type (1 byte)
 	switch (type) {
-	case 10:
-		buffer = "A";
-		break;
-	case 11:
-		buffer = "B";
-		break;
-	case 12:
-		buffer = "C";
-		break;
-	case 13:
-		buffer = "D";
-		break;
-	case 14:
-		buffer = "E";
-		break;
-	case 15:
-		buffer = "F";
-		break;
-	default:
-		asprintf(&buffer, "%d", type);
-		break;
+	    case 0x0A:
+		    byte = 'A';
+			break;
+		case 0x0B:
+		    byte = 'B';
+			break;
+		case 0x0C:
+		    byte = 'C';
+			break;
+		case 0x0D:
+		    byte = 'D';
+			break;
+		case 0x0E:
+		    byte = 'E';
+			break;
+		case 0x0F:
+		    byte = 'F';
+			break;
+		default:
+		    byte = type + '0';
+			break;
 	}
-
-	frame = (char *) malloc (sizeof(char) * (strlen(buffer) + 1));
-	strcpy(frame, buffer);
-
-	if(buffer != NULL) {
-		free(buffer);
-	}
-
-	// write header
-	asprintf(&buffer, "[%s]", header);
-	frame = (char *) realloc(frame, sizeof(char) * (strlen(frame) + strlen(buffer)));
-	strcat(frame, buffer);
-	free(buffer);
+	
+	i = sprintf(frame, "%c[%s]", byte, header);
 
 	// write lenght (2 bytes)
-	if(data != NULL) {
-		length = strlen(data);
-		asprintf(&buffer, "%d", length);
-		frame = (char *) realloc(frame, sizeof(char) * (strlen(frame) + strlen(buffer)));
-		strcat(frame, buffer);
-		free(buffer);
-		
-		// write data (lenght bytes)
-		frame = (char *) realloc(frame, sizeof(char) * (strlen(frame) + strlen(data)));
-		strcat(frame, data);
+	if (data != NULL) {
+		length_msB = (char) ((length >> 8) & 0x00FF); 	// shift MSB
+		length_lsB = (char) (length & 0x00FF);			// store LSB
+		frame[i] = length_lsB;
+		frame[i + 1] = length_msB;
+		i += 2;
+		// write data (length bytes)
+		for (j = 0; j < length; j++) {
+		    frame[i] = data[j];
+			i++;
+		}
 	} else {
-		asprintf(&buffer, "%d", length);
-		frame = (char *) realloc(frame, sizeof(char) * (strlen(frame) + strlen(buffer)));
-		strcat(frame, buffer);
-		free(buffer);
+		frame[i] = 0;
+		frame[i + 1] = 0;
+		i += 2;
 	}
 
-	// write frame to the client fd
-	write(fd, frame, strlen(frame));
+	// write entire frame
+	write(fd, frame, size);
+	free(frame);
+	frame = NULL;
+
+	return (1);
 }
 
 /**********************************************************************
@@ -321,34 +319,85 @@ void SHAREDFUNCTIONS_parseDataFieldConnection(char *data, char *username, char *
  * @Return: data = the data field of the frame with all the clients 
  * 				   connected
  * ********************************************************************/
-char * SHAREDFUNCTIONS_writeDataFieldUpdate(BidirectionalList blist) {
+char * SHAREDFUNCTIONS_getUsersFromList(BidirectionalList blist) {
 	char *data = NULL;
 	char *buffer = NULL;
-	int new_size = 0;
+	int size = 0, n = 0;
 	int flag_first = 1;
 	Element element;
 
 	BIDIRECTIONALLIST_goToHead(&blist);
 
-	while(BIDIRECTIONALLIST_isValid(blist)) {
+	while (BIDIRECTIONALLIST_isValid(blist)) {
 		element = BIDIRECTIONALLIST_get(&blist);
-		if(flag_first) {
-			asprintf(&buffer, "%s&%s&%d&%d", element.username, element.ip_network, element.port, (int) element.pid);
-			// reserve memory for the data field
-			data = (char *) malloc (sizeof(char) * (strlen(buffer) + 1));
-			data[strlen(buffer)] = '\0';
-		} else{
-			asprintf(&buffer, "#%s&%s&%d&%d", element.username, element.ip_network, element.port, (int) element.pid);
-			new_size = strlen(data) + strlen(buffer) + 1;
-			data = (char *) realloc (data, sizeof(char) * new_size);
-			data[new_size] = '\0';
-		}		
+
+		if (flag_first) {
+			size = asprintf(&data, "%s&%s&%d&%d", element.username, element.ip_network, element.port, (int) element.pid);
+			flag_first = 0;
+		} else {
+			n = asprintf(&buffer, "#%s&%s&%d&%d", element.username, element.ip_network, element.port, (int) element.pid);
+			size += n + 1;
+			data = (char *) realloc (data, sizeof(char) * size);
+			strcat(data, buffer);
+		}
 		
-		strcat(data, buffer);
 		BIDIRECTIONALLIST_next(&blist);
+		free(element.username);
+		element.username = NULL;
+		free(element.ip_network);
+		element.ip_network = NULL;
 	}
 
-	return data;
+	return (data);
+}
+
+/*
+*/
+void parseUserFromFrame(char *data, Element *e) {
+    char *buffer = NULL;
+	int i = 0;
+
+	// get username
+	e->username = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
+	// get IP
+	e->ip_network = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
+	// get port
+	buffer = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
+	e->port = atoi(buffer);
+	free(buffer);
+	buffer = NULL;
+	// get PID
+	buffer = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
+	e->pid = atoi(buffer);
+	free(buffer);
+	buffer = NULL;
+}
+
+/*
+*/
+char updateUsersList(BidirectionalList *list, char *users) {
+    Element element;
+	char *user = NULL;
+	int i = 0;
+
+	// reset list
+	BIDIRECTIONALLIST_makeEmpty(list);
+	BIDIRECTIONALLIST_goToTail(list);
+
+	// add users
+	do {
+	    user = SHAREDFUNCTIONS_splitString(users, GPC_USERS_SEPARATOR, &i);
+		parseUserFromFrame(user, &element);
+		free(user);
+		user = NULL;
+		BIDIRECTIONALLIST_addAfter(list, element);
+		free(element.username);
+		element.username = NULL;
+		free(element.ip_network);
+		element.ip_network = NULL;
+	} while (i < (int) strlen(users));
+
+	return (1);
 }
 
 /**********************************************************************
@@ -372,9 +421,9 @@ void SHAREDFUNCTIONS_readDataFieldUpdate(char *data, char **username, char **ip,
 	
 	while(1) {
 		if(flag_first) {
-			asprintf(&buffer, "%s", strtok(data, GPC_DATA_SEPARATOR_USR_STR));
+			asprintf(&buffer, "%s", strtok(data, GPC_USERS_SEPARATOR_STR));
 		} else {
-			asprintf(&buffer, "%s", strtok(NULL, GPC_DATA_SEPARATOR_USR_STR));
+			asprintf(&buffer, "%s", strtok(NULL, GPC_USERS_SEPARATOR_STR));
 		}
 
 		// If strtok returns NULL, there are no more users
@@ -388,5 +437,3 @@ void SHAREDFUNCTIONS_readDataFieldUpdate(char *data, char **username, char **ip,
 		i++;
 	}	
 }
-
-

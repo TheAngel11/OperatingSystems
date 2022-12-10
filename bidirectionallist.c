@@ -1,3 +1,8 @@
+/*********************************************************************
+* @Purpose: Contains all the necessary functions to manage a
+*           bidirectional list of a defined element.
+* @Last change: 10/12/2022
+*********************************************************************/
 #include "bidirectionallist.h"
 
 BidirectionalList BIDIRECTIONALLIST_create() {
@@ -21,6 +26,11 @@ BidirectionalList BIDIRECTIONALLIST_create() {
 		}
 		else {
 			list.error = LIST_NO_ERROR;
+			// init HEAD and TAIL Element
+			list.head->element.username = NULL;
+			list.head->element.ip_network = NULL;
+			list.tail->element.username = NULL;
+			list.tail->element.ip_network = NULL;
 
 			list.head->next = list.tail;
 			list.head->previous = NULL;
@@ -55,7 +65,11 @@ void BIDIRECTIONALLIST_addBefore(BidirectionalList * list, Element element) {
 			list->error = LIST_NO_ERROR;
 
 			// Link the new node to the structure.
-			new_node->element = element;
+			new_node->element.username = strdup(element.username);
+			new_node->element.ip_network = strdup(element.ip_network);
+			new_node->element.port = element.port;
+			new_node->element.pid = element.pid;
+			new_node->element.clientFD = element.clientFD;
 			new_node->next = list->poi;
 			new_node->previous = list->poi->previous;
 			
@@ -80,7 +94,11 @@ void BIDIRECTIONALLIST_addAfter (BidirectionalList * list, Element element) {
 			list->error = LIST_NO_ERROR;
 
 			// Link the new node to the structure.
-			new_node->element = element;
+			new_node->element.username = strdup(element.username);
+			new_node->element.ip_network = strdup(element.ip_network);
+			new_node->element.port = element.port;
+			new_node->element.pid = element.pid;
+			new_node->element.clientFD = element.clientFD;
 			new_node->next = list->poi->next;
 			new_node->previous = list->poi;
 			
@@ -101,11 +119,30 @@ Element	BIDIRECTIONALLIST_get(BidirectionalList * list) {
 		}
 		else {
 			list->error = LIST_NO_ERROR;
-			element = list->poi->element;
+			element.username = strdup(list->poi->element.username);
+			element.ip_network = strdup(list->poi->element.ip_network);
+			element.port = list->poi->element.port;
+			element.pid = list->poi->element.pid;
+			element.clientFD = list->poi->element.clientFD;
 		}
 	}
 
 	return element;
+}
+
+int BIDIRECTIONALLIST_getNumberOfElements(BidirectionalList list) {
+    int n = 0;
+
+	if (!BIDIRECTIONALLIST_isEmpty(list)) {
+	    BIDIRECTIONALLIST_goToHead(&list);
+
+		while (BIDIRECTIONALLIST_isValid(list)) {
+		    n++;
+			BIDIRECTIONALLIST_next(&list);
+		}
+	}
+
+	return (n);
 }
 
 void BIDIRECTIONALLIST_remove(BidirectionalList * list) {
@@ -118,6 +155,12 @@ void BIDIRECTIONALLIST_remove(BidirectionalList * list) {
 			list->error = LIST_ERROR_INVALID;
 		}
 		else {
+			// free Element memory
+			free(list->poi->element.username);
+			list->poi->element.username = NULL;
+			free(list->poi->element.ip_network);
+			list->poi->element.ip_network = NULL;
+			// remove Node
 			aux = list->poi;
 
 			list->poi->previous->next = list->poi->next;
@@ -129,11 +172,17 @@ void BIDIRECTIONALLIST_remove(BidirectionalList * list) {
 	}
 }
 
+void BIDIRECTIONALLIST_makeEmpty(BidirectionalList *list) {
+    BIDIRECTIONALLIST_goToHead(list);
+
+	while (!BIDIRECTIONALLIST_isEmpty(*list)) {
+		BIDIRECTIONALLIST_remove(list);
+	}
+}
 
 int	BIDIRECTIONALLIST_isEmpty(BidirectionalList list) {
 	return list.head->next == list.tail;
 }
-
 
 int BIDIRECTIONALLIST_isValid(BidirectionalList list) {
 	return list.poi != list.head && list.poi != list.tail;
@@ -152,8 +201,6 @@ void BIDIRECTIONALLIST_next(BidirectionalList * list) {
 	}
 }
 
-
-
 void BIDIRECTIONALLIST_goToTail(BidirectionalList * list) {
 	list->poi = list->tail->previous;
 }
@@ -168,19 +215,22 @@ void BIDIRECTIONALLIST_previous(BidirectionalList * list) {
 }
 
 
-
 void BIDIRECTIONALLIST_destroy(BidirectionalList * list) {
 	while (list->head != NULL) {
 		list->poi = list->head;
 		list->head = list->head->next;
+		// free Element memory
+		if (NULL != list->poi->element.username) { 
+		    free(list->poi->element.username);
+			list->poi->element.username = NULL;
+		}
+		if (NULL != list->poi->element.ip_network) {
+		    free(list->poi->element.ip_network);
+			list->poi->element.ip_network = NULL;
+		}
+		// free Node
 		free(list->poi);
 	}
 	list->tail = NULL;
 	list->poi = NULL;
 }
-
-int BIDIRECTIONALLIST_getErrorCode(BidirectionalList list) {
-	return list.error;
-}
-
-
