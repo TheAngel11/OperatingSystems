@@ -33,7 +33,7 @@
 #define NEW_LOGIN_MSG                   "New login: %s, IP: %s, port: %d, PID %d\n"
 #define UPDATING_LIST_MSG               "Updating user's list\n"
 #define SENDING_LIST_MSG                "Sending user's list\n"
-#define RENPONSE_SENT_LIST_MSG          "Response sent\n\n"
+#define RESPONSE_SENT_LIST_MSG          "Response sent\n\n"
 #define PETITION_UPDATE_MSG             "New petition: %s demands the user's list\nSending user's list to %s\n\n"
 #define PETITION_EXIT_MSG               "New exit petition: %s has left Arda\n"
 #define ERROR_N_ARGS_MSG            	"ERROR: not enough arguments\n"
@@ -183,7 +183,7 @@ void *threadClient(void *c_fd) {
                     SHAREDFUNCTIONS_writeFrame(clientFD, 0x01, GPC_HEADER_CONKO, NULL);
                 }
                 
-                printMsg(RENPONSE_SENT_LIST_MSG);
+                printMsg(RESPONSE_SENT_LIST_MSG);
                 break;
             
             // Update list petition            
@@ -192,6 +192,9 @@ void *threadClient(void *c_fd) {
                 asprintf(&buffer, PETITION_UPDATE_MSG, data, data);
                 printMsg(buffer);
                 free(buffer);
+				buffer = NULL;
+				free(data);
+				data = NULL;
 
                 // We don't need to apply mutex because the list is not modified
 				data = SHAREDFUNCTIONS_getUsersFromList(blist);
@@ -237,7 +240,7 @@ void *threadClient(void *c_fd) {
                 } else {
                     SHAREDFUNCTIONS_writeFrame(clientFD, 0x06, GPC_HEADER_CONKO, NULL);
                 }             
-                printMsg(RENPONSE_SENT_LIST_MSG);
+                printMsg(RESPONSE_SENT_LIST_MSG);
 
                 // 4 - Closing the client connection
 				if (NULL != data) {
@@ -246,10 +249,9 @@ void *threadClient(void *c_fd) {
 				}
                 close(clientFD);
                 return NULL;
-            // Wrong type
+            // Unknown command
             default:
-                // Send error frame
-                SHAREDFUNCTIONS_writeFrame(clientFD, 0x07, GPC_UNKNOWN_CMD_HEADER, NULL);
+                // When UNKNOWN_COMMAND do nothing (message already shown in IluvatarSon)
                 break;
         }
 
