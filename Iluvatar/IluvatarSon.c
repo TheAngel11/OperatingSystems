@@ -3,7 +3,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 10/12/2022
+* @Last change: 11/12/2022
 *********************************************************************/
 #define _GNU_SOURCE 1
 #include <stdio.h>
@@ -17,6 +17,7 @@
 #include "../bidirectionallist.h"
 #include "commands.h"
 #include "../sharedFunctions.h"
+#include "../gpc.h"
 
 #define MIN_N_ARGS 					2
 #define WELCOME_MSG 				"\n%sWelcome %s, son of Iluvatar\n"
@@ -189,11 +190,11 @@ int main(int argc, char* argv[]) {
 
 		// notify connection to Arda
 		asprintf(&buffer, "%s%c%s%c%d%c%d", iluvatarSon.username, GPC_DATA_SEPARATOR, iluvatarSon.ip_address, GPC_DATA_SEPARATOR, iluvatarSon.port, GPC_DATA_SEPARATOR, getpid());
-		SHAREDFUNCTIONS_writeFrame(fd_arda, 0x01, GPC_CONNECT_SON_HEADER, buffer);
+		GPC_writeFrame(fd_arda, 0x01, GPC_CONNECT_SON_HEADER, buffer);
 		free(buffer);
 		buffer = NULL;
 		// wait for answer
-		SHAREDFUNCTIONS_readFrame(fd_arda, &type, &header, &buffer);
+		GPC_readFrame(fd_arda, &type, &header, &buffer);
 
 		// check connection
 		if (0 == strcmp(header, GPC_HEADER_CONKO)) {
@@ -215,7 +216,7 @@ int main(int argc, char* argv[]) {
 		free(header);
 		header = NULL;
 		// update list of users
-		updateUsersList(&users_list, buffer);
+		GPC_updateUsersList(&users_list, buffer);
 		free(buffer);
 		buffer = NULL;
 		// welcome user

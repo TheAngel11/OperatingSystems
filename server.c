@@ -22,6 +22,7 @@ Server SERVER_init(char *ip, int port) {
 	s.listen_fd = FD_NOT_FOUND;
 	s.client_fd = FD_NOT_FOUND;
 	s.thread = NULL;
+	s.n_threads = 0;
 	pthread_mutex_init(&s.mutex, NULL);
 	s.n_clients = 0;
 
@@ -105,13 +106,13 @@ void *ardaClient(void *args) {
     Element element;
 
     while (1) {
-        SHAREDFUNCTIONS_readFrame(s->client_fd, &type, &header, &data);
+        GPC_readFrame(s->client_fd, &type, &header, &data);
 
         switch (type) {
             // Connection request
             case 0x01:
 				// get username, IP, port and PID
-				parseUserFromFrame(data, &element);
+				GPC_parseUserFromFrame(data, &element);
                 // get clientFD
 				element.clientFD = s->client_fd;
 				free(data);
@@ -139,12 +140,12 @@ void *ardaClient(void *args) {
                 printMsg(SENDING_LIST_MSG);
                 // Write connexion frame
                 if (s->clients.error == LIST_NO_ERROR) {
-					data = SHAREDFUNCTIONS_getUsersFromList(s->clients);
-					SHAREDFUNCTIONS_writeFrame(s->client_fd, 0x01, GPC_HEADER_CONOK, data); 
+					data = GPC_getUsersFromList(s->clients);
+					GPC_writeFrame(s->client_fd, 0x01, GPC_HEADER_CONOK, data); 
 					free(data);
 					data = NULL;
                 } else {
-                    SHAREDFUNCTIONS_writeFrame(s->client_fd, 0x01, GPC_HEADER_CONKO, NULL);
+                    GPC_writeFrame(s->client_fd, 0x01, GPC_HEADER_CONKO, NULL);
                 }
                 
                 printMsg(RESPONSE_SENT_LIST_MSG);
@@ -161,8 +162,8 @@ void *ardaClient(void *args) {
 				data = NULL;
 
                 // We don't need to apply mutex because the list is not modified
-				data = SHAREDFUNCTIONS_getUsersFromList(s->clients);
-                SHAREDFUNCTIONS_writeFrame(s->client_fd, 0x02, GPC_UPDATE_USERS_HEADER_OUT, data);     
+				data = GPC_getUsersFromList(s->clients);
+                GPC_writeFrame(s->client_fd, 0x02, GPC_UPDATE_USERS_HEADER_OUT, data);     
                 break;
             
             // Types not implemented yet
@@ -211,9 +212,9 @@ void *ardaClient(void *args) {
 
                 // 3 - writing the exit frame
                 if (s->clients.error == LIST_NO_ERROR) {
-                    SHAREDFUNCTIONS_writeFrame(s->client_fd, 0x06, GPC_HEADER_CONOK, NULL);             
+                    GPC_writeFrame(s->client_fd, 0x06, GPC_HEADER_CONOK, NULL);             
                 } else {
-                    SHAREDFUNCTIONS_writeFrame(s->client_fd, 0x06, GPC_HEADER_CONKO, NULL);
+                    GPC_writeFrame(s->client_fd, 0x06, GPC_HEADER_CONKO, NULL);
                 }             
                 printMsg(RESPONSE_SENT_LIST_MSG);
 
@@ -259,8 +260,6 @@ void *ardaClient(void *args) {
 * @Return: ----
 *********************************************************************/
 void SERVER_runArda(Arda *arda, Server *server) {
-	//int n_clients = 0;
-
 	while (1) {
 	    // Accept (Blocks the system until a connection request arrives)
 		if ((server->client_fd = accept(server->listen_fd, (struct sockaddr *) NULL, NULL)) < 0) {
@@ -269,10 +268,13 @@ void SERVER_runArda(Arda *arda, Server *server) {
 			printMsg(COLOR_DEFAULT_TXT);
 			return;
 		} else {
-		    if (server->n_clients > 0) {
+		    //if (server->n_clients > 0) {
+			if (server->n_threads > 0) {
 			    // add thread to array
 				(server->n_clients)++;
-				server->thread = (pthread_t *) realloc (server->thread, sizeof(pthread_t) * server->n_clients);
+				(server->n_threads)++;
+//				server->thread = (pthread_t *) realloc (server->thread, sizeof(pthread_t) * server->n_clients);
+				server->thread = (pthread_t *) realloc (server->thread, sizeof(pthread_t) * server->n_threads);
 			} else {
 			    // init threads array
 				if (NULL != server->thread) {
@@ -281,6 +283,7 @@ void SERVER_runArda(Arda *arda, Server *server) {
 				}
 
 				(server->n_clients)++;
+				(server->n_threads)++;
 				server->thread = (pthread_t *) malloc (sizeof(pthread_t));
 			}
 
@@ -295,9 +298,9 @@ void SERVER_runArda(Arda *arda, Server *server) {
 				server->thread = NULL;
 				// close FDs
 				close(server->listen_fd);
-				//closeAllClientFD(server);
+				closeAllClientFDs(server);
 				BIDIRECTIONALLIST_destroy(&server->clients);
-				return;// (-1);
+				return;
 			}
 		}
 	}
@@ -321,7 +324,7 @@ void SERVER_close(Server *server) {
 
     BIDIRECTIONALLIST_destroy(&server->clients);
 	
-	for (i = 0; i < server->n_clients; i++) {
+	for (i = 0; i < server->n_threads; i++) {
 	    pthread_detach(server->thread[i]);
 		pthread_cancel(server->thread[i]);
 	}

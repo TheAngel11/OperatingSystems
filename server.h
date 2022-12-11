@@ -14,6 +14,7 @@
 #include "definitions.h"
 #include "sharedFunctions.h"
 #include "bidirectionallist.h"
+#include "gpc.h"
 
 /* Messages */
 #define ERROR_BINDING_SOCKET_MSG		"ERROR: Arda could not bind the server socket\n"
@@ -35,6 +36,7 @@ typedef struct {
     int listen_fd;
 	int client_fd;
 	pthread_t *thread;
+	int n_threads;
 	pthread_mutex_t mutex;
 	BidirectionalList clients;
 	int n_clients;

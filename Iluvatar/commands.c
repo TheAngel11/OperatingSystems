@@ -245,9 +245,9 @@ char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 	    case IS_UPDATE_USERS_CMD:
 			printMsg(UPDATE_USERS_SUCCESS_MSG);
 			// request list
-			SHAREDFUNCTIONS_writeFrame(fd_dest, 0x02, GPC_UPDATE_USERS_HEADER_IN, iluvatar.username);
+			GPC_writeFrame(fd_dest, 0x02, GPC_UPDATE_USERS_HEADER_IN, iluvatar.username);
 			// get list
-			SHAREDFUNCTIONS_readFrame(fd_dest, &type, &header, &buffer);
+			GPC_readFrame(fd_dest, &type, &header, &buffer);
 			// update list
 			BIDIRECTIONALLIST_destroy(clients);
 			*clients = getListFromString(buffer, (int) strlen(buffer));
@@ -272,9 +272,9 @@ char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 		default:
 		    // exit command
 			// notify Arda
-			SHAREDFUNCTIONS_writeFrame(fd_dest, 0x06, GPC_EXIT_HEADER, iluvatar.username);
+			GPC_writeFrame(fd_dest, 0x06, GPC_EXIT_HEADER, iluvatar.username);
 			// get answer
-			SHAREDFUNCTIONS_readFrame(fd_dest, &type, &header, NULL);
+			GPC_readFrame(fd_dest, &type, &header, NULL);
 			
 			if (0 == strcmp(header, GPC_HEADER_CONKO)) {
 			    printMsg(COLOR_RED_TXT);
@@ -371,7 +371,7 @@ int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda
 				if (0 != WEXITSTATUS(status)) {
 					// Invalid Linux command
 					printMsg(UNKNOWN_CMD_MSG);
-					SHAREDFUNCTIONS_writeFrame(fd_arda, 0x07, GPC_UNKNOWN_CMD_HEADER, NULL);
+					GPC_writeFrame(fd_arda, 0x07, GPC_UNKNOWN_CMD_HEADER, NULL);
 				}
 				break;
 		}	
