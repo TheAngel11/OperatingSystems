@@ -3,6 +3,8 @@ commands.o: Iluvatar/commands.c Iluvatar/commands.h
 	gcc -c -Wall -Wextra Iluvatar/commands.c
 sharedFunctions.o: sharedFunctions.c sharedFunctions.h
 	gcc -c -Wall -Wextra sharedFunctions.c
+server.o: server.c server.h
+	gcc -c -Wall -Wextra server.c
 IluvatarSon.o: Iluvatar/IluvatarSon.c definitions.h
 	gcc -c -Wall -Wextra Iluvatar/IluvatarSon.c
 bidirectionallist.o: bidirectionallist.c bidirectionallist.h
@@ -11,8 +13,8 @@ Arda.o: ArdaServer/Arda.c definitions.h
 	gcc -c -Wall -Wextra ArdaServer/Arda.c
 IluvatarSon: IluvatarSon.o commands.o sharedFunctions.o bidirectionallist.o
 	gcc IluvatarSon.o commands.o sharedFunctions.o bidirectionallist.o -o IluvatarSon -Wall -Wextra
-Arda: Arda.o sharedFunctions.o bidirectionallist.o
-	gcc Arda.o sharedFunctions.o bidirectionallist.o -o Arda -Wall -Wextra -lpthread
+Arda: Arda.o sharedFunctions.o bidirectionallist.o server.o
+	gcc Arda.o sharedFunctions.o bidirectionallist.o server.o -o Arda -Wall -Wextra -lpthread
 clean:
 	rm -f *.o
 	rm -f IluvatarSon
