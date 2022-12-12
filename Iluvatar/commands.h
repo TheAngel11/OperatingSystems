@@ -13,6 +13,7 @@
 #include "../definitions.h"
 #include "../sharedFunctions.h"
 #include "../bidirectionallist.h"
+#include "../gpc.h"
 
 /* CUSTOM COMMANDS */
 #define UPDATE_USERS_CMD		"UPDATE USERS\0"
