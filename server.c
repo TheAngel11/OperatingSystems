@@ -92,6 +92,106 @@ void closeAllClientFDs(Server *server) {
     }
 }
 
+void answerConnectionRequest(Server *s, char **data) {
+    Element element;
+	char *buffer = NULL;
+
+	// get username, IP, port and PID
+	GPC_parseUserFromFrame(*data, &element);
+	// get clientFD
+	element.clientFD = s->client_fd;
+	free(*data);
+	*data = NULL;
+	// Printing the new login
+	asprintf(&buffer, NEW_LOGIN_MSG, element.username, element.ip_network, element.port, element.pid);
+	printMsg(buffer);
+	free(buffer);
+	buffer = NULL;
+	printMsg(UPDATING_LIST_MSG);
+	// We check with mutual exclusion that only 1 process is added to the list at the same time
+	// if there are 2 or more users connecting at the same time
+	pthread_mutex_lock(&s->mutex);
+	// Adding the client to the list (critical region)
+	BIDIRECTIONALLIST_addAfter(&s->clients, element);
+	pthread_mutex_unlock(&s->mutex);
+	free(element.username);
+	element.username = NULL;
+	free(element.ip_network);
+	element.ip_network = NULL;
+	printMsg(SENDING_LIST_MSG);
+	// Write connexion frame
+	if (s->clients.error == LIST_NO_ERROR) {
+		buffer = GPC_getUsersFromList(s->clients);
+		GPC_writeFrame(s->client_fd, 0x01, GPC_HEADER_CONOK, buffer); 
+		free(buffer);
+		buffer = NULL;
+	} else {
+	    GPC_writeFrame(s->client_fd, 0x01, GPC_HEADER_CONKO, NULL);
+	}
+
+	printMsg(RESPONSE_SENT_LIST_MSG);
+}
+
+void answerExitPetition(Server *s, char **data) {
+    Element element;
+	char *buffer = NULL;
+
+	// data is the username
+	asprintf(&buffer, PETITION_EXIT_MSG, *data);
+	printMsg(buffer);
+	free(buffer);
+	buffer = NULL;
+	printMsg(UPDATING_LIST_MSG);
+	// Removing client from the list
+	// We check with mutual exclusion that only 1 process is removed to the list at the same time
+	// if there are 2 or more users disconnecting at the same time
+	pthread_mutex_lock(&s->mutex);
+	// Critical region
+	BIDIRECTIONALLIST_goToHead(&s->clients);
+	// 1 - Searching the client
+	element = BIDIRECTIONALLIST_get(&s->clients);
+                
+	while (strcmp(element.username, *data) != 0) {
+	    BIDIRECTIONALLIST_next(&s->clients);
+		free(element.username);
+		element.username = NULL;
+		free(element.ip_network);
+		element.ip_network = NULL;
+		element = BIDIRECTIONALLIST_get(&s->clients);
+	}
+				
+	free(element.username);
+	element.username = NULL;
+	free(element.ip_network);
+	element.ip_network = NULL;
+	// 2 - Removing the client (critical region)
+	BIDIRECTIONALLIST_remove(&s->clients);
+	pthread_mutex_unlock(&s->mutex);
+	printMsg(SENDING_LIST_MSG);
+	
+	// 3 - writing the exit frame
+	if (s->clients.error == LIST_NO_ERROR) {
+	    GPC_writeFrame(s->client_fd, 0x06, GPC_HEADER_CONOK, NULL);             
+	} else {
+	    GPC_writeFrame(s->client_fd, 0x06, GPC_HEADER_CONKO, NULL);
+	}             
+
+	printMsg(RESPONSE_SENT_LIST_MSG);
+	// 4 - Closing the client connection
+//	free(header);
+//	header = NULL;
+
+	if (NULL != *data) {
+	    free(*data);
+	    *data = NULL;
+	}
+
+	pthread_mutex_lock(&s->mutex);
+	(s->n_clients)--;
+	pthread_mutex_unlock(&s->mutex);
+	close(s->client_fd);
+}
+
 /*********************************************************************
 * @Purpose: Creates the thread for the client that has connected.
 * @Params: in: args = arguments to pass to thread.
@@ -103,7 +203,6 @@ void *ardaClient(void *args) {
     char *header = NULL;
     char *data = NULL;
     char *buffer = NULL;
-    Element element;
 
     while (1) {
         GPC_readFrame(s->client_fd, &type, &header, &data);
@@ -111,44 +210,7 @@ void *ardaClient(void *args) {
         switch (type) {
             // Connection request
             case 0x01:
-				// get username, IP, port and PID
-				GPC_parseUserFromFrame(data, &element);
-                // get clientFD
-				element.clientFD = s->client_fd;
-				free(data);
-				data = NULL;
-
-                // Printing the new login
-                asprintf(&buffer, NEW_LOGIN_MSG, element.username, element.ip_network, element.port, element.pid);
-                printMsg(buffer);
-                free(buffer);
-				buffer = NULL;
-
-                printMsg(UPDATING_LIST_MSG);
-
-                // We check with mutual exclusion that only 1 process is added to the list at the same time
-                // if there are 2 or more users connecting at the same time
-                pthread_mutex_lock(&s->mutex);
-                // Adding the client to the list (critical region)
-                BIDIRECTIONALLIST_addAfter(&s->clients, element);
-                pthread_mutex_unlock(&s->mutex);
-				free(element.username);
-				element.username = NULL;
-				free(element.ip_network);
-				element.ip_network = NULL;
-
-                printMsg(SENDING_LIST_MSG);
-                // Write connexion frame
-                if (s->clients.error == LIST_NO_ERROR) {
-					data = GPC_getUsersFromList(s->clients);
-					GPC_writeFrame(s->client_fd, 0x01, GPC_HEADER_CONOK, data); 
-					free(data);
-					data = NULL;
-                } else {
-                    GPC_writeFrame(s->client_fd, 0x01, GPC_HEADER_CONKO, NULL);
-                }
-                
-                printMsg(RESPONSE_SENT_LIST_MSG);
+				answerConnectionRequest(s, &data);
                 break;
             
             // Update list petition
@@ -175,60 +237,9 @@ void *ardaClient(void *args) {
 
             // Exit petition
             case 0x06:
-                // data is the username
-                asprintf(&buffer, PETITION_EXIT_MSG, data);
-                printMsg(buffer);
-                free(buffer);
-				buffer = NULL;
-                
-                printMsg(UPDATING_LIST_MSG);
-                // Removing client from the list
-
-                // We check with mutual exclusion that only 1 process is removed to the list at the same time
-                // if there are 2 or more users disconnecting at the same time
-                pthread_mutex_lock(&s->mutex);
-                // Critical region
-                BIDIRECTIONALLIST_goToHead(&s->clients);
-                // 1 - Searching the client
-				element = BIDIRECTIONALLIST_get(&s->clients);
-                
-				while (strcmp(element.username, data) != 0) {
-                    BIDIRECTIONALLIST_next(&s->clients);
-					free(element.username);
-					element.username = NULL;
-					free(element.ip_network);
-					element.ip_network = NULL;
-					element = BIDIRECTIONALLIST_get(&s->clients);
-                }
-				
-				free(element.username);
-				element.username = NULL;
-				free(element.ip_network);
-				element.ip_network = NULL;
-                // 2 - Removing the client (critical region)
-                BIDIRECTIONALLIST_remove(&s->clients);
-                pthread_mutex_unlock(&s->mutex);
-                printMsg(SENDING_LIST_MSG);
-
-                // 3 - writing the exit frame
-                if (s->clients.error == LIST_NO_ERROR) {
-                    GPC_writeFrame(s->client_fd, 0x06, GPC_HEADER_CONOK, NULL);             
-                } else {
-                    GPC_writeFrame(s->client_fd, 0x06, GPC_HEADER_CONKO, NULL);
-                }             
-                printMsg(RESPONSE_SENT_LIST_MSG);
-
-                // 4 - Closing the client connection
+                answerExitPetition(s, &data);
 				free(header);
 				header = NULL;
-				if (NULL != data) {
-				    free(data);
-				    data = NULL;
-				}
-                pthread_mutex_lock(&s->mutex);
-				(s->n_clients)--;
-                pthread_mutex_unlock(&s->mutex);
-				close(s->client_fd);
                 return NULL;
             // Unknown command
             default:
@@ -268,12 +279,10 @@ void SERVER_runArda(Arda *arda, Server *server) {
 			printMsg(COLOR_DEFAULT_TXT);
 			return;
 		} else {
-		    //if (server->n_clients > 0) {
 			if (server->n_threads > 0) {
 			    // add thread to array
 				(server->n_clients)++;
 				(server->n_threads)++;
-//				server->thread = (pthread_t *) realloc (server->thread, sizeof(pthread_t) * server->n_clients);
 				server->thread = (pthread_t *) realloc (server->thread, sizeof(pthread_t) * server->n_threads);
 			} else {
 			    // init threads array

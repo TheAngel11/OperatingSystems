@@ -58,7 +58,6 @@ void GPC_parseUserFromFrame(char *data, Element *e);
 **********************************************************************/
 char GPC_updateUsersList(BidirectionalList *list, char *users);
 
-
 /**********************************************************************
 * @Purpose: Turns a list of users into a string following the GPC
 *           format so that it can be sent in a frame.
