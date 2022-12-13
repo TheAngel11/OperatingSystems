@@ -78,7 +78,7 @@ char GPC_readFrame(int fd, char *type, char **header, char **data) {
 **********************************************************************/
 char GPC_writeFrame(int fd, char type, char *header, char *data) {
 	char *frame = NULL;
-	char byte = 0;
+ 	char byte = 0;
 	unsigned short length = 0;
 	char length_lsB = 0, length_msB = 0;
 	int i = 0, j = 0;
@@ -201,8 +201,47 @@ char GPC_updateUsersList(BidirectionalList *list, char *users) {
 		element.ip_network = NULL;
 	} while (i < (int) strlen(users));
 
-	return (1);
+	return (1); 
 }
+
+/**********************************************************************
+* @Purpose: Given the origin user and the message, creates the data field 
+*			of a send message frame.
+* @Params: in/out: originUser = the user who sends the message
+*	.	   in/out: message = the message that the origin user sends
+* @Return: Returns data of the frame or NULL if there is no data.
+**********************************************************************/
+char * GPC_sendMessage(char *originUser, char *message) {
+	char *data = NULL;
+	
+	if(strcmp(message, "") == 0) {
+		return NULL; 
+	}
+
+	// TODO Remove the first and last character of the message ("") ??
+	message = message + 1;
+	message[strlen(message) - 1] = '\0';
+
+	// given the origin user and the message, creates the data field 
+	// of a send message frame
+	data = (char *) malloc (sizeof(char) * (strlen(originUser) + strlen(message) + 2));
+	sprintf(data, "%s%c%s", originUser, GPC_DATA_SEPARATOR, message);
+	return data;
+} 
+
+/**********************************************************************
+* @Purpose: Given the data of a send message frame, finds the origin user and the message 
+* @Params: in/out: data = the user who sends the message
+* 		   in/out: originUser = the user who sends the message
+*		   in/out: message = the message that the origin user sends
+* @Return: Returns 1.
+**********************************************************************/
+void GPC_parseSendMessage(char *data, char **originUser, char **message) {
+	int i = 0;
+	//data is in the format: originUser + GPC_DATA_SEPARATOR + message
+	*originUser = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
+	*message = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
+} 
 
 /**********************************************************************
 * @Purpose: Turns a list of users into a string following the GPC

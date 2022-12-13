@@ -17,10 +17,10 @@
 #include "gpc.h"
 
 /* Messages */
-#define ERROR_BINDING_SOCKET_MSG		"ERROR: Arda could not bind the server socket\n"
-#define ERROR_LISTENING_MSG         	"ERROR: Arda could not make the listen\n"
-#define ERROR_ACCEPTING_MSG	        	"ERROR: Arda could not accept the connection request\n"
-#define ERROR_CREATING_THREAD_MSG   	"ERROR: Arda could not create the thread\n"
+#define ERROR_BINDING_SOCKET_MSG		"ERROR: Server could not bind the server socket\n"
+#define ERROR_LISTENING_MSG         	"ERROR: Server could not make the listen\n"
+#define ERROR_ACCEPTING_MSG	        	"ERROR: Server could not accept the connection request\n"
+#define ERROR_CREATING_THREAD_MSG   	"ERROR: Server could not create the thread\n"
 #define ERROR_TYPE_NOT_IMPLEMENTED_MSG	"ERROR: That type of frame has not been implemented yet\n"
 #define NEW_LOGIN_MSG                   "New login: %s, IP: %s, port: %d, PID %d\n"
 #define UPDATING_LIST_MSG               "Updating user's list\n"
@@ -59,6 +59,21 @@ Server SERVER_init(char *ip, int port);
 * @Return: ----
 *********************************************************************/
 void SERVER_runArda(Arda *arda, Server *server);
+
+/*********************************************************************
+* @Purpose: Runs an initialized IluvatarSon passive socket.
+* @Params: in/out: iluvatarSon = instance of IluvatarSon
+*		   in/out: server = initialized instance of Server.
+* @Return: ----
+*********************************************************************/
+void SERVER_runIluvatar(IluvatarSon *iluvatarSon, Server *server); 
+
+/*********************************************************************
+* @Purpose: Closes all the file descriptors of the clients.
+* @Params: ----
+* @Return: ----
+*********************************************************************/
+void closeAllClientFDs(Server *server);
 
 /*********************************************************************
 * @Purpose: Runs an initialized Arda server.

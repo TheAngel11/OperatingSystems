@@ -15,7 +15,7 @@ Client CLIENT_init(char *ip, int port) {
 		return (c);
 	}
 
-	bzero(&server, sizeof(server));
+	bzero(&server, sizeof(server)); 
 	server.sin_family = AF_INET;
 	server.sin_port = htons(port);
 	if (inet_pton(AF_INET, ip, &server.sin_addr) < 0) {

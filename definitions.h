@@ -5,10 +5,11 @@
 #include <stdlib.h>
 
 /* Messages */
-#define ERROR_N_LESS_ARGS_MSG	 		"ERROR: Missing configuration file (not enough arguments)\n"
-#define ERROR_N_MORE_ARGS_MSG	 		"ERROR: Too many arguments\n"
-#define ERROR_OPENING_FILE		 		"ERROR: File %s could not be opened\n"
-#define ERROR_CREATING_CHILD 	 		"ERROR: Child could not be created\n"
+#define ERROR_N_LESS_ARGS_MSG	 "ERROR: Missing configuration file (not enough arguments)\n"
+#define ERROR_N_MORE_ARGS_MSG	 "ERROR: Too many arguments\n"
+#define ERROR_OPENING_FILE		 "ERROR: File %s could not be opened\n"
+#define ERROR_CREATING_CHILD 	 "ERROR: Child could not be created\n"
+
 #define ERROR_CREATING_SOCKET_MSG		"ERROR: Socket could not be created\n"
 #define ERROR_IP_CONFIGURATION_MSG		"ERROR: Failed to configure IP address\n"
 #define ERROR_SERVER_CONNECTION_MSG		"ERROR: Failed to connect to Arda server\n"
@@ -18,8 +19,7 @@
 #define COLOR_CLI_TXT					"\033[1;36m"
 #define COLOR_RED_TXT					"\033[1;31m"
 #define END_OF_LINE		    			'\n'
-
-/* General Protocol Communication (GPC) constants */
+#define MSG_RECIEVED_MSG                "New message received!\n%s, from %s\nsays:\n''%s''\n"
 
 typedef struct {
     char *username;

@@ -7,6 +7,9 @@
 * @Last change: 10/12/2022
 *********************************************************************/
 #include "commands.h"
+#include "../client.h"
+
+char **command;
 
 /*********************************************************************
 * @Purpose: Separates a command into its arguments.
@@ -240,6 +243,10 @@ char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
     char *buffer = NULL;
 	char *header = NULL;
 	char type = 0x07;			// set to UNKNOWN by default
+	char *data = NULL;
+	Element e;
+	Client client;
+	int found = 0;
 
 	switch (id) {
 	    case IS_UPDATE_USERS_CMD:
@@ -258,10 +265,87 @@ char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 			printUsersList(*clients);
 			break;
 		case IS_SEND_MSG_CMD:
-		    asprintf(&buffer, "%s\n", SEND_MSG_CMD);
-			printMsg(buffer);
-			free(buffer);
-			buffer = NULL;
+			// Connect iluvatar to iluvatar
+			//Check if command length is correct
+			// printMsg("Name: ");
+			// printMsg(command[2]);
+			// printMsg("\n");
+
+			// printMsg("MSG: ");
+			// printMsg(command[3]);
+			// printMsg("\n");
+
+			// Find the user
+			BIDIRECTIONALLIST_goToHead(clients);
+			while (BIDIRECTIONALLIST_isValid(*clients)) {
+				e = BIDIRECTIONALLIST_get(clients);
+				if (strcmp(e.username, command[2]) == 0) {
+					found = 1;
+					// printMsg("IP: ");
+					// printMsg(e.ip_network);
+					// printMsg("\n");
+
+					// asprintf(&borrar, "Port: %d\n", e.port);
+					// printMsg(borrar);
+					// free(borrar);
+
+					// Open socket
+					client = CLIENT_init(e.ip_network, e.port);
+
+					//Print clientFD
+					// asprintf(&borrar, "ClientFD comm: %d\n", e.clientFD);
+					// printMsg(borrar);
+					// free(borrar);
+
+				 	// asprintf(&borrar, "ClientFD comm client: %d\n", client.server_fd);
+					// printMsg(borrar);
+					// free(borrar);
+
+					data = GPC_sendMessage(command[2], command[3]);
+
+					if(data != NULL) {
+						// TODO: comprovar que l'altre usuari està en una màquina diferent
+						// Send the message
+						GPC_writeFrame(client.server_fd, 0x03, GPC_SEND_MSG_HEADER_IN, data);
+						free(data);
+						data = NULL;
+					} else {
+						printMsg(COLOR_RED_TXT);
+						printMsg("ERROR: This is not a valid message to send\n");
+						printMsg(COLOR_DEFAULT_TXT);
+					}
+
+					// Get the answer
+					GPC_readFrame(client.server_fd, &type, &header, NULL);
+					
+					if (0 == strcmp(header, GPC_HEADER_MSGKO)) {
+						printMsg(COLOR_RED_TXT);
+						printMsg("ERROR: Message have not been correctly sent\n");
+						printMsg(COLOR_DEFAULT_TXT);
+						if(header != NULL) {
+							free(header);
+							header = NULL;
+						}
+						return (-1);
+					} else if (0 == strcmp(header, GPC_HEADER_MSGOK)) {
+						printMsg("Message correctly sent\n\n");
+					}	
+				}
+				// free element 
+				free(e.username);
+				e.username = NULL;
+				free(e.ip_network);
+				e.ip_network = NULL;
+				BIDIRECTIONALLIST_next(clients);
+				if(found == 1) break;
+			}
+
+			if (found == 0) {
+				printMsg(COLOR_RED_TXT);
+				printMsg("ERROR: User not found\n");
+				printMsg(COLOR_DEFAULT_TXT);
+			}
+
 			break;
 		case IS_SEND_FILE_CMD:
 		    asprintf(&buffer, "%s\n", SEND_FILE_CMD);
@@ -328,7 +412,7 @@ void freeMemCmd(char ***args, int *n_args) {
 * @Return: 0 if EXIT command entered, otherwise 1.
 *********************************************************************/
 int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda, BidirectionalList *users_list) {
-    char **command = NULL;
+    command = NULL;
 	char error = 0;
 	int n_args = 0, cmd_id = 0;
 	int pid = -1, status = 0;
@@ -336,7 +420,7 @@ int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda
 	n_args = getCmdArgs(user_input, &command);
 	// identify command
 	cmd_id = identifyCommand(command, n_args);
-	
+
 	if ((ERROR_CMD_ARGS != cmd_id) && (IS_NOT_CUSTOM_CMD != cmd_id)) {
 	    // execute custom command
 		error = executeCustomCommand(cmd_id, fd_arda, *iluvatar, users_list);

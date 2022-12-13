@@ -11,10 +11,13 @@
 
 #define GPC_DATA_SEPARATOR				'&'
 #define GPC_USERS_SEPARATOR				'#'
-#define GPC_CONNECT_SON_HEADER			"NEW_SON\0"
+#define GPC_CONNECT_SON_HEADER			"NEW_SON\0" 
 #define GPC_UPDATE_USERS_HEADER_IN		"LIST_REQUEST\0"
 #define GPC_UPDATE_USERS_HEADER_OUT		"LIST_RESPONSE\0"
+#define GPC_SEND_MSG_HEADER_IN	        "MSG\0"
 #define GPC_HEADER_CONOK            	"CONOK\0"
+#define GPC_HEADER_MSGOK            	"MSGOK\0"
+#define GPC_HEADER_MSGKO             	"MSGKO\0"
 #define GPC_HEADER_CONKO            	"CONKO\0"
 #define GPC_EXIT_HEADER					"EXIT\0"
 #define GPC_UNKNOWN_CMD_HEADER      	"UNKNOWN\0"
@@ -57,6 +60,24 @@ void GPC_parseUserFromFrame(char *data, Element *e);
 * @Return: Returns 1.
 **********************************************************************/
 char GPC_updateUsersList(BidirectionalList *list, char *users);
+
+/**********************************************************************
+* @Purpose: Given the origin user and the message, creates the data field 
+*			of a send message frame.
+* @Params: in/out: originUser = the user who sends the message
+*	.	   in/out: message = the message that the origin user sends
+* @Return: Returns 1.
+**********************************************************************/
+char * GPC_sendMessage(char *originUser, char *message); 
+
+/**********************************************************************
+* @Purpose: Given the data of a send message frame, finds the origin user and the message 
+* @Params: in/out: data = the user who sends the message
+* 		   in/out: originUser = the user who sends the message
+*		   in/out: message = the message that the origin user sends
+* @Return: Returns 1.
+**********************************************************************/
+void GPC_parseSendMessage(char *data, char **originUser, char **message);
 
 /**********************************************************************
 * @Purpose: Turns a list of users into a string following the GPC

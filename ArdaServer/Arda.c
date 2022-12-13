@@ -5,7 +5,7 @@
 * @Date:
 * @Last change: 11/12/2022
 *********************************************************************/
-#define _GNU_SOURCE 1
+#define _GNU_SOURCE 1 
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>

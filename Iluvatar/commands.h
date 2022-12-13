@@ -9,7 +9,7 @@
 #include <strings.h> // function strcasecmp() is case insensitive
 #include <string.h>
 #include <sys/wait.h>
-
+ 
 #include "../definitions.h"
 #include "../sharedFunctions.h"
 #include "../bidirectionallist.h"

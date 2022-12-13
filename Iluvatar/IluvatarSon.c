@@ -15,6 +15,7 @@
 #include <sys/types.h>
 
 #include "../bidirectionallist.h"
+#include "../server.h"
 #include "commands.h"
 #include "../sharedFunctions.h"
 #include "../gpc.h"
@@ -31,13 +32,17 @@ IluvatarSon iluvatarSon;
 char *iluvatar_command = NULL;
 BidirectionalList users_list;
 Client client;
-
+Server server;
+pthread_t thread_accept;
 /*********************************************************************
 * @Purpose: Free memory when SIGINT received.
 * @Params: ----
 * @Return: ----
 *********************************************************************/
 void sigintHandler() {
+	pthread_detach(thread_accept);
+	pthread_cancel(thread_accept);
+	SERVER_close(&server);
     SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
 	if (NULL != iluvatar_command) {
 	    free(iluvatar_command);
@@ -107,6 +112,12 @@ int readIluvatarSon(char *filename, IluvatarSon *iluvatar) {
 	return (error);
 }
 
+void *iluvatarAccept() {
+	// Running the server
+	SERVER_runIluvatar(&iluvatarSon, &server);
+	return NULL;
+}
+
 /*********************************************************************
 * @Purpose: Executes the IluvatarSon process.
 * @Params: in: argc = number of arguments entered
@@ -152,7 +163,31 @@ int main(int argc, char* argv[]) {
 			return (0);
 		}
 
-		//
+		// Open passive socket
+		server = SERVER_init(iluvatarSon.ip_address, iluvatarSon.port);
+
+		if ((FD_NOT_FOUND == server.listen_fd) || (LIST_NO_ERROR != server.clients.error)) {
+	    	SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
+		return (-1);
+		}
+
+		// Creating the thread to accept connections
+		if (pthread_create(&thread_accept, NULL, iluvatarAccept, NULL) != 0) {
+			printMsg(COLOR_RED_TXT);
+			printMsg(ERROR_CREATING_THREAD_MSG);
+			printMsg(COLOR_DEFAULT_TXT);
+			// free memory
+			SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
+			free(server.thread);
+			server.thread = NULL;
+			// close FDs
+			close(server.listen_fd);
+			closeAllClientFDs(&server);
+			BIDIRECTIONALLIST_destroy(&server.clients);
+			return (-1);
+		}
+
+		// Open active socket
 		client = CLIENT_init(iluvatarSon.arda_ip_address, iluvatarSon.arda_port);
 		
 		if (FD_NOT_FOUND == client.server_fd) {

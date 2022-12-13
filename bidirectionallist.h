@@ -95,4 +95,6 @@ void	BIDIRECTIONALLIST_previous(BidirectionalList * list);
 
 void 	BIDIRECTIONALLIST_destroy(BidirectionalList * list);
 
+															
+
 #endif

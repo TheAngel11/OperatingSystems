@@ -193,7 +193,7 @@ void answerExitPetition(Server *s, char **data) {
 }
 
 /*********************************************************************
-* @Purpose: Creates the thread for the client that has connected.
+* @Purpose: Creates the thread for the client that has connected to Arda.
 * @Params: in: args = arguments to pass to thread.
 * @Return: ----
 *********************************************************************/
@@ -229,7 +229,7 @@ void *ardaClient(void *args) {
                 break;
             
             // Types not implemented yet
-            case 0x03: case 0x04: case 0x05: case 0x08:
+            case 0x08:
                 printMsg(COLOR_RED_TXT);
 		        printMsg(ERROR_TYPE_NOT_IMPLEMENTED_MSG);
                 printMsg(COLOR_DEFAULT_TXT);
@@ -241,6 +241,150 @@ void *ardaClient(void *args) {
 				free(header);
 				header = NULL;
                 return NULL;
+            // Unknown command
+            default:
+                // When UNKNOWN_COMMAND do nothing (message already shown in IluvatarSon)
+                break;
+        }
+
+		if (NULL != data) {
+		    free(data);
+			data = NULL;
+		}
+		if (NULL != header) {
+		    free(header);
+			header = NULL;
+		}
+        
+		type = 0x07;
+    }
+    
+    return NULL;
+}
+
+/*********************************************************************
+* @Purpose: Creates the thread for the client that has connected to Iluvatar
+*			by a message send in other machines.
+* @Params: in: args = arguments to pass to thread.
+* @Return: ----
+*********************************************************************/
+void *iluvatarClient(void *args) {
+    Server *s = (Server *) args;
+    char type = 0x07;
+    char *header = NULL;
+    char *data = NULL;
+	char *originUser = NULL;
+	char *message = NULL;
+	char *buffer = NULL;
+	int found = 0;
+	//Element e;
+
+    while (1) {
+		found = 0;
+		// char *borrar = NULL;
+		// asprintf(&borrar, "ClientFD serv: %d\n", s->client_fd);
+		// printMsg(borrar);
+		// free(borrar);
+        GPC_readFrame(s->client_fd, &type, &header, &data);
+		
+		// //Print s->client_fd with asprintf
+		// asprintf(&buffer, "Client FD (%d)\n", s->client_fd);
+		// printMsg(buffer);
+		// free(buffer);
+
+		// //Print type with asprintf
+		// asprintf(&buffer, "Type (%d)\n", type);
+		// printMsg(buffer);
+		// free(buffer);
+
+		// //Print header with asprintf
+		// asprintf(&buffer, "Header (%s)\n", header);
+		// printMsg(buffer);
+		// free(buffer);
+
+		//Print data with asprintf
+		 asprintf(&buffer, "Data (%s)\n", data);
+		 printMsg(buffer);
+		 free(buffer);
+
+        switch (type) {            
+			// Send message petition
+			case 0x03:
+				// printMsg("THE MSG IS: ");
+				// printMsg(data);
+				// printMsg("\n");
+
+				// parse the message with GPC_parseSendMessage and pass data, origin user and message
+				GPC_parseSendMessage(data, &originUser, &message);
+				// printMsg("THE ORIGIN USER IS: ");
+				// printMsg(originUser);
+				// printMsg("\n");
+				// printMsg("THE MESSAGE IS: ");
+				// printMsg(message);
+				// printMsg("\n");
+
+				// Find the user 
+				/*BIDIRECTIONALLIST_goToHead(&(s->clients));
+				printMsg("EN EL HEAD!!!!!!\n");
+				while (BIDIRECTIONALLIST_isValid(s->clients) && !found) {
+					e = BIDIRECTIONALLIST_get(&(s->clients));
+
+					printMsg("THE USER IS: ");
+					printMsg(e.username);
+					printMsg("\n");
+
+					if (strcmp(e.username, originUser) == 0) { 
+						printMsg("||||||||FOOOUND|||||||||");
+						found = 1;
+						asprintf(&buffer, MSG_RECIEVED_MSG, originUser, e.ip_network, message);
+						printMsg(buffer);
+						free(buffer);
+					}
+					free(e.username);
+					e.username = NULL;
+					free(e.ip_network);
+					e.ip_network = NULL;
+					BIDIRECTIONALLIST_next(&(s->clients));
+					if(found == 1) break;
+				}*/
+
+				asprintf(&buffer, MSG_RECIEVED_MSG, originUser, "???.???.???", message); //TODO: està hardcoded
+				printMsg(buffer);
+				free(buffer);
+				found = 1; //TODO: està hardcoded
+
+				if(data != NULL && strcmp(GPC_SEND_MSG_HEADER_IN, header) == 0 && found == 1) {
+					// Reply message petition	
+					printMsg("Enviant resposta correcte!\n");
+					GPC_writeFrame(s->client_fd, 0x03, GPC_HEADER_MSGOK, NULL);
+
+				}
+				
+
+				if(originUser != NULL) {
+					free(originUser);
+					originUser = NULL;
+				}
+				if(data != NULL) {
+					free(data);
+					data = NULL;
+				}
+				if(message != NULL) {
+					free(message);
+					message = NULL;
+				}		 			
+				break;
+
+			// Send file petition
+			case 0x04:
+
+				break;
+			
+			// Check MD5SUM frame
+			case 0x05:
+
+				break;
+
             // Unknown command
             default:
                 // When UNKNOWN_COMMAND do nothing (message already shown in IluvatarSon)
@@ -311,6 +455,59 @@ void SERVER_runArda(Arda *arda, Server *server) {
 				BIDIRECTIONALLIST_destroy(&server->clients);
 				return;
 			}
+		}
+	}
+
+	pthread_mutex_destroy(&server->mutex);
+}
+
+/*********************************************************************
+* @Purpose: Runs an initialized IluvatarSon passive socket.
+* @Params: in/out: iluvatarSon = instance of IluvatarSon
+*		   in/out: server = initialized instance of Server.
+* @Return: ----
+*********************************************************************/
+void SERVER_runIluvatar(IluvatarSon *iluvatarSon, Server *server) {
+	while (1) {
+	    // Accept (Blocks the system until a connection request arrives)
+		if ((server->client_fd = accept(server->listen_fd, (struct sockaddr *) NULL, NULL)) < 0) {
+            printMsg(COLOR_RED_TXT);
+			printMsg(ERROR_ACCEPTING_MSG);
+			printMsg(COLOR_DEFAULT_TXT);
+			return;
+		}
+
+		if (server->n_threads > 0) {
+			// add thread to array
+			(server->n_clients)++;
+			(server->n_threads)++;
+			server->thread = (pthread_t *) realloc (server->thread, sizeof(pthread_t) * server->n_threads);
+		} else {
+			// init threads array
+			if (NULL != server->thread) {
+				free(server->thread);
+				server->thread = NULL;
+			}
+
+			(server->n_clients)++;
+			(server->n_threads)++;
+			server->thread = (pthread_t *) malloc (sizeof(pthread_t));
+		}
+
+		// Creating the thread
+		if (pthread_create(&server->thread[server->n_clients - 1], NULL, iluvatarClient, server) != 0) {
+			printMsg(COLOR_RED_TXT);
+			printMsg(ERROR_CREATING_THREAD_MSG);
+			printMsg(COLOR_DEFAULT_TXT);
+			// free memory
+			SHAREDFUNCTIONS_freeIluvatarSon(iluvatarSon);
+			free(server->thread);
+			server->thread = NULL;
+			// close FDs
+			close(server->listen_fd);
+			closeAllClientFDs(server);
+			BIDIRECTIONALLIST_destroy(&server->clients);
+			return;
 		}
 	}
 
