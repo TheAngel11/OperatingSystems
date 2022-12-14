@@ -88,7 +88,7 @@ void SHAREDFUNCTIONS_writeFrame(int fd, int type, char *header, char *data);
  *  		in/out: pid = the pid of the client passed by reference
  * @Return: ----
  * ********************************************************************/
-void SHAREDFUNCTIONS_parseDataFieldConnection(char *data, char *username, char *ip, int *port, pid_t *pid);
+//void SHAREDFUNCTIONS_parseDataFieldConnection(char *data, char *username, char *ip, int *port, pid_t *pid);
 
 /**********************************************************************
  * @Purpose: Writes the data field of a frame when a client connects or 
@@ -113,6 +113,6 @@ char * SHAREDFUNCTIONS_writeDataFieldUpdate(BidirectionalList blist);
  * 						  by reference
  * @Return: ----
  * ********************************************************************/
-void SHAREDFUNCTIONS_readDataFieldUpdate(char *data, char **username, char **ip, int **port, int **pid);
+//void SHAREDFUNCTIONS_readDataFieldUpdate(char *data, char **username, char **ip, int **port, int **pid);
 
 #endif

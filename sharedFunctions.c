@@ -289,7 +289,7 @@ void SHAREDFUNCTIONS_writeFrame(int fd, int type, char *header, char *data) {
  *  		in/out: pid = the pid of the client passed by reference
  * @Return: ----
  * ********************************************************************/
-void SHAREDFUNCTIONS_parseDataFieldConnection(char *data, char *username, char *ip, int *port, pid_t *pid) {
+/*void SHAREDFUNCTIONS_parseDataFieldConnection(char *data, char *username, char *ip, int *port, pid_t *pid) {
 	char *buffer = NULL;
 	char *data_cpy = NULL; 
 
@@ -312,7 +312,7 @@ void SHAREDFUNCTIONS_parseDataFieldConnection(char *data, char *username, char *
 
 	// reserve memory for the pid
 	*pid = (pid_t) atoi(strtok(NULL, GPC_DATA_SEPARATOR_STR));
-}
+}*/
 
 /**********************************************************************
  * @Purpose: Writes the data field of a frame when a client connects or 
@@ -365,7 +365,7 @@ char * SHAREDFUNCTIONS_writeDataFieldUpdate(BidirectionalList blist) {
  * 						  by reference
  * @Return: ----
  * ********************************************************************/
-void SHAREDFUNCTIONS_readDataFieldUpdate(char *data, char **username, char **ip, int **port, int **pid) {
+/*void SHAREDFUNCTIONS_readDataFieldUpdate(char *data, char **username, char **ip, int **port, int **pid) {
 	int i = 0;
 	char *buffer = NULL;
 	int flag_first = 1;
@@ -387,6 +387,6 @@ void SHAREDFUNCTIONS_readDataFieldUpdate(char *data, char **username, char **ip,
 
 		i++;
 	}	
-}
+}*/
 
 

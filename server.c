@@ -281,26 +281,7 @@ void *iluvatarClient(void *args) {
 
     while (1) {
 		found = 0;
-		// char *borrar = NULL;
-		// asprintf(&borrar, "ClientFD serv: %d\n", s->client_fd);
-		// printMsg(borrar);
-		// free(borrar);
         GPC_readFrame(s->client_fd, &type, &header, &data);
-		
-		// //Print s->client_fd with asprintf
-		// asprintf(&buffer, "Client FD (%d)\n", s->client_fd);
-		// printMsg(buffer);
-		// free(buffer);
-
-		// //Print type with asprintf
-		// asprintf(&buffer, "Type (%d)\n", type);
-		// printMsg(buffer);
-		// free(buffer);
-
-		// //Print header with asprintf
-		// asprintf(&buffer, "Header (%s)\n", header);
-		// printMsg(buffer);
-		// free(buffer);
 
 		//Print data with asprintf
 		 asprintf(&buffer, "Data (%s)\n", data);
@@ -310,18 +291,8 @@ void *iluvatarClient(void *args) {
         switch (type) {            
 			// Send message petition
 			case 0x03:
-				// printMsg("THE MSG IS: ");
-				// printMsg(data);
-				// printMsg("\n");
-
 				// parse the message with GPC_parseSendMessage and pass data, origin user and message
 				GPC_parseSendMessage(data, &originUser, &message);
-				// printMsg("THE ORIGIN USER IS: ");
-				// printMsg(originUser);
-				// printMsg("\n");
-				// printMsg("THE MESSAGE IS: ");
-				// printMsg(message);
-				// printMsg("\n");
 
 				// Find the user 
 				/*BIDIRECTIONALLIST_goToHead(&(s->clients));

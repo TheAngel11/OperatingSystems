@@ -10,6 +10,7 @@
 #include "bidirectionallist.h"
 
 #define GPC_DATA_SEPARATOR				'&'
+#define GPC_DATA_SEPARATOR_STR          "&"
 #define GPC_USERS_SEPARATOR				'#'
 #define GPC_CONNECT_SON_HEADER			"NEW_SON\0" 
 #define GPC_UPDATE_USERS_HEADER_IN		"LIST_REQUEST\0"

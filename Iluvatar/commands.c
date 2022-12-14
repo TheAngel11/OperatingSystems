@@ -265,41 +265,15 @@ char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 			printUsersList(*clients);
 			break;
 		case IS_SEND_MSG_CMD:
-			// Connect iluvatar to iluvatar
-			//Check if command length is correct
-			// printMsg("Name: ");
-			// printMsg(command[2]);
-			// printMsg("\n");
-
-			// printMsg("MSG: ");
-			// printMsg(command[3]);
-			// printMsg("\n");
-
 			// Find the user
 			BIDIRECTIONALLIST_goToHead(clients);
 			while (BIDIRECTIONALLIST_isValid(*clients)) {
 				e = BIDIRECTIONALLIST_get(clients);
 				if (strcmp(e.username, command[2]) == 0) {
 					found = 1;
-					// printMsg("IP: ");
-					// printMsg(e.ip_network);
-					// printMsg("\n");
-
-					// asprintf(&borrar, "Port: %d\n", e.port);
-					// printMsg(borrar);
-					// free(borrar);
 
 					// Open socket
 					client = CLIENT_init(e.ip_network, e.port);
-
-					//Print clientFD
-					// asprintf(&borrar, "ClientFD comm: %d\n", e.clientFD);
-					// printMsg(borrar);
-					// free(borrar);
-
-				 	// asprintf(&borrar, "ClientFD comm client: %d\n", client.server_fd);
-					// printMsg(borrar);
-					// free(borrar);
 
 					data = GPC_sendMessage(command[2], command[3]);
 
