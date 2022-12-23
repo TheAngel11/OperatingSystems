@@ -23,7 +23,6 @@
 
 #define MIN_N_ARGS 					2
 #define WELCOME_MSG 				"\n%sWelcome %s, son of Iluvatar\n"
-#define CMD_LINE_PROMPT				"%s%c "
 #define ARDA_CONNECTION_DENIED_MSG	"Connection denied by server\n"
 #define ILUVATARSON_OK				0
 #define ILUVATARSON_KO				-1
@@ -168,7 +167,7 @@ int main(int argc, char* argv[]) {
 
 		if ((FD_NOT_FOUND == server.listen_fd) || (LIST_NO_ERROR != server.clients.error)) {
 	    	SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
-		return (-1);
+			return (-1);
 		}
 
 		// Creating the thread to accept connections
@@ -244,7 +243,6 @@ int main(int argc, char* argv[]) {
 		    printMsg(COLOR_DEFAULT_TXT);
 		    // execute command
 		    exit_program = COMMANDS_executeCommand(command, &iluvatarSon, client.server_fd, &users_list);
-
 		    // free mem
 		    if (NULL != command) {
 		        free(command);

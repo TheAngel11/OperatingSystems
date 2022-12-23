@@ -21,7 +21,6 @@
 #define SEND_MSG_CMD			"SEND MSG\0"
 #define SEND_FILE_CMD			"SEND FILE\0"
 #define EXIT_CMD				"EXIT\0"
-#define CMD_ID_BYTE				'$'
 #define CMD_END_BYTE			'\n'
 #define CMD_MSG_SEPARATOR		'"'
 

@@ -14,12 +14,14 @@
 #define ERROR_IP_CONFIGURATION_MSG		"ERROR: Failed to configure IP address\n"
 #define ERROR_SERVER_CONNECTION_MSG		"ERROR: Failed to connect to Arda server\n"
 #define ERROR_DISCONNECT_ILUVATAR_MSG 	"ERROR: Failed to disconnect from Arda\n"
+#define CMD_ID_BYTE				    '$'
+#define CMD_LINE_PROMPT				"%s%c "
 
 #define COLOR_DEFAULT_TXT				"\033[0m"
 #define COLOR_CLI_TXT					"\033[1;36m"
 #define COLOR_RED_TXT					"\033[1;31m"
 #define END_OF_LINE		    			'\n'
-#define MSG_RECIEVED_MSG                "New message received!\n%s, from %s\nsays:\n''%s''\n"
+#define MSG_RECIEVED_MSG                "\nNew message received!\n%s, from %s\nsays:\n\"%s\"\n"
 
 typedef struct {
     char *username;

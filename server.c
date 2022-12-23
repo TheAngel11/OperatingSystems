@@ -279,101 +279,100 @@ void *iluvatarClient(void *args) {
 	int found = 0;
 	//Element e;
 
-    while (1) {
-		found = 0;
-        GPC_readFrame(s->client_fd, &type, &header, &data);
+	found = 0;
+	GPC_readFrame(s->client_fd, &type, &header, &data);
 
-		//Print data with asprintf
-		 asprintf(&buffer, "Data (%s)\n", data);
-		 printMsg(buffer);
-		 free(buffer);
+	// Print the default color	
+	printMsg(COLOR_DEFAULT_TXT);
 
-        switch (type) {            
-			// Send message petition
-			case 0x03:
-				// parse the message with GPC_parseSendMessage and pass data, origin user and message
-				GPC_parseSendMessage(data, &originUser, &message);
+	switch (type) {            
+		// Send message petition
+		case 0x03:
+			// parse the message with GPC_parseSendMessage and pass data, origin user and message
+			GPC_parseSendMessage(data, &originUser, &message);
 
-				// Find the user 
-				/*BIDIRECTIONALLIST_goToHead(&(s->clients));
-				printMsg("EN EL HEAD!!!!!!\n");
-				while (BIDIRECTIONALLIST_isValid(s->clients) && !found) {
-					e = BIDIRECTIONALLIST_get(&(s->clients));
+			// Find the user 
+			/*BIDIRECTIONALLIST_goToHead(&(s->clients));
+			printMsg("EN EL HEAD!!!!!!\n");
+			while (BIDIRECTIONALLIST_isValid(s->clients) && !found) {
+				e = BIDIRECTIONALLIST_get(&(s->clients));
 
-					printMsg("THE USER IS: ");
-					printMsg(e.username);
-					printMsg("\n");
+				printMsg("THE USER IS: ");
+				printMsg(e.username);
+				printMsg("\n");
 
-					if (strcmp(e.username, originUser) == 0) { 
-						printMsg("||||||||FOOOUND|||||||||");
-						found = 1;
-						asprintf(&buffer, MSG_RECIEVED_MSG, originUser, e.ip_network, message);
-						printMsg(buffer);
-						free(buffer);
-					}
-					free(e.username);
-					e.username = NULL;
-					free(e.ip_network);
-					e.ip_network = NULL;
-					BIDIRECTIONALLIST_next(&(s->clients));
-					if(found == 1) break;
-				}*/
-
-				asprintf(&buffer, MSG_RECIEVED_MSG, originUser, "???.???.???", message); //TODO: està hardcoded
-				printMsg(buffer);
-				free(buffer);
-				found = 1; //TODO: està hardcoded
-
-				if(data != NULL && strcmp(GPC_SEND_MSG_HEADER_IN, header) == 0 && found == 1) {
-					// Reply message petition	
-					printMsg("Enviant resposta correcte!\n");
-					GPC_writeFrame(s->client_fd, 0x03, GPC_HEADER_MSGOK, NULL);
-
+				if (strcmp(e.username, originUser) == 0) { 
+					printMsg("||||||||FOOOUND|||||||||");
+					found = 1;
+					asprintf(&buffer, MSG_RECIEVED_MSG, originUser, e.ip_network, message);
+					printMsg(buffer);
+					free(buffer);
 				}
-				
+				free(e.username);
+				e.username = NULL;
+				free(e.ip_network);
+				e.ip_network = NULL;
+				BIDIRECTIONALLIST_next(&(s->clients));
+				if(found == 1) break;
+			}*/
 
-				if(originUser != NULL) {
-					free(originUser);
-					originUser = NULL;
-				}
-				if(data != NULL) {
-					free(data);
-					data = NULL;
-				}
-				if(message != NULL) {
-					free(message);
-					message = NULL;
-				}		 			
-				break;
+			asprintf(&buffer, MSG_RECIEVED_MSG, originUser, "???.???.???", message); //TODO: està hardcoded
+			printMsg(buffer);
+			free(buffer);
+			found = 1; //TODO: està hardcoded
 
-			// Send file petition
-			case 0x04:
-
-				break;
+			if(data != NULL && strcmp(GPC_SEND_MSG_HEADER_IN, header) == 0 && found == 1) {
+				// Reply message petition	
+				printMsg("Enviant resposta correcte!\n");
+				GPC_writeFrame(s->client_fd, 0x03, GPC_HEADER_MSGOK, NULL);
+			}
 			
-			// Check MD5SUM frame
-			case 0x05:
 
-				break;
+			if(originUser != NULL) {
+				free(originUser);
+				originUser = NULL;
+			}
+			if(data != NULL) {
+				free(data);
+				data = NULL;
+			}
+			if(message != NULL) {
+				free(message);
+				message = NULL;
+			}	
+			break;
 
-            // Unknown command
-            default:
-                // When UNKNOWN_COMMAND do nothing (message already shown in IluvatarSon)
-                break;
-        }
+		// Send file petition
+		case 0x04:
 
-		if (NULL != data) {
-		    free(data);
-			data = NULL;
-		}
-		if (NULL != header) {
-		    free(header);
-			header = NULL;
-		}
-        
-		type = 0x07;
-    }
-    
+			break;
+		
+		// Check MD5SUM frame
+		case 0x05:
+
+			break;
+
+		// Unknown command
+		default:
+			// When UNKNOWN_COMMAND do nothing (message already shown in IluvatarSon)
+			break;
+	}
+	if (NULL != data) {
+		free(data);
+		data = NULL;
+	}
+	if (NULL != header) {
+		free(header);
+		header = NULL;
+	}
+	type = 0x07;
+
+	// open again thecommand line
+	asprintf(&buffer, CMD_LINE_PROMPT, COLOR_CLI_TXT, CMD_ID_BYTE);
+	printMsg(buffer);
+	free(buffer);
+	buffer = NULL;
+
     return NULL;
 }
 
@@ -478,8 +477,12 @@ void SERVER_runIluvatar(IluvatarSon *iluvatarSon, Server *server) {
 			close(server->listen_fd);
 			closeAllClientFDs(server);
 			BIDIRECTIONALLIST_destroy(&server->clients);
+					printMsg("11\n");
+
 			return;
 		}
+		
+		printMsg("9\n");
 	}
 
 	pthread_mutex_destroy(&server->mutex);
