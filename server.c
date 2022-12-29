@@ -4,7 +4,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 10/12/2022
-* @Last change: 11/12/2022
+* @Last change: 29/12/2022
 *********************************************************************/
 #include "server.h"
 
@@ -290,6 +290,9 @@ void *ardaClient(void *args) {
 				pthread_mutex_lock(&s->mutex);
 				s->thread[index_thread].terminated = 1;
 				pthread_mutex_unlock(&s->mutex);
+				// Close thread
+				pthread_cancel(s->thread[index_thread].id);
+				pthread_detach(s->thread[index_thread].id);
                 return NULL;
             // Unknown command
             default:

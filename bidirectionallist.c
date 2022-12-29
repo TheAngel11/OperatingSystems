@@ -83,7 +83,8 @@ void BIDIRECTIONALLIST_addAfter (BidirectionalList * list, Element element) {
 	Node * new_node = NULL;
 	// We cannot add elements after the tail phantom node. 
 	if (list->poi == list->tail) {
-		list->error = LIST_ERROR_INVALID;
+	    BIDIRECTIONALLIST_addBefore(list, element);
+		//list->error = LIST_ERROR_INVALID; //TODO: change by addBefore
 	}
 	else {
 		new_node = (Node*) malloc (sizeof (Node));
