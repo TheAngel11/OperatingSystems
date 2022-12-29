@@ -32,8 +32,11 @@ char * SHAREDFUNCTIONS_readUntil(int fd, char delimiter) {
 		}
 	}
 
-	buffer[i] = '\0';
+	if(i == 0) {
+		return NULL;
+	}
 
+	buffer[i] = '\0';
 	return (buffer);
 }
 

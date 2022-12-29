@@ -33,14 +33,27 @@
 #define FD_NOT_FOUND                	-1
 
 typedef struct {
+	pthread_t id;
+	int terminated;
+} ThreadInfo;
+
+typedef struct {
     int listen_fd;
 	int client_fd;
-	pthread_t *thread;
+	char *client_ip;
+	ThreadInfo *thread;
 	int n_threads;
 	pthread_mutex_t mutex;
+	pthread_mutex_t client_fd_mutex;
+	pthread_mutex_t *mutex_print;
 	BidirectionalList clients;
 	int n_clients;
 } Server;
+
+typedef struct {
+    IluvatarSon *iluvatar;
+	Server *server;
+} ServerIluvatar;
 
 /*********************************************************************
 * @Purpose: Initializes a server opening its passive socket.
@@ -55,7 +68,7 @@ Server SERVER_init(char *ip, int port);
 * @Params: in/out: arda = instance of Arda containing the name the
 *                  IP address, the port and the directory of the
 *				   server.
-*		   in/out: server = initialized instance of Server.
+*		   in/out: server = initialized instance of Server. 
 * @Return: ----
 *********************************************************************/
 void SERVER_runArda(Arda *arda, Server *server);
@@ -66,7 +79,7 @@ void SERVER_runArda(Arda *arda, Server *server);
 *		   in/out: server = initialized instance of Server.
 * @Return: ----
 *********************************************************************/
-void SERVER_runIluvatar(IluvatarSon *iluvatarSon, Server *server); 
+void SERVER_runIluvatar(IluvatarSon *iluvatarSon, Server *server, pthread_mutex_t *mutex_print); 
 
 /*********************************************************************
 * @Purpose: Closes all the file descriptors of the clients.

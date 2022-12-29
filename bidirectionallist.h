@@ -40,7 +40,7 @@
 
 
 // Data Types
-typedef struct {
+typedef struct { 
 	char *username;
 	char *ip_network;
 	int port;
@@ -63,12 +63,12 @@ typedef struct _Node {
 } Node;
 
 
-typedef struct {
+typedef struct {  
 	int error;
 	Node * head;
 	Node * tail;
-	Node * poi;
-} BidirectionalList;
+	Node * poi; 
+} BidirectionalList; 
 
 
 // Global module variables
@@ -88,6 +88,7 @@ int		BIDIRECTIONALLIST_isEmpty(BidirectionalList list);
 int 	BIDIRECTIONALLIST_isValid(BidirectionalList list);
 
 void	BIDIRECTIONALLIST_goToHead(BidirectionalList * list);
+void 	BIDIRECTIONALLIST_goToHeadPhantom(BidirectionalList * list);
 void	BIDIRECTIONALLIST_next(BidirectionalList * list);
 
 void	BIDIRECTIONALLIST_goToTail(BidirectionalList * list);

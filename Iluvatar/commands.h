@@ -9,11 +9,13 @@
 #include <strings.h> // function strcasecmp() is case insensitive
 #include <string.h>
 #include <sys/wait.h>
- 
+#include <mqueue.h>
+
 #include "../definitions.h"
 #include "../sharedFunctions.h"
 #include "../bidirectionallist.h"
 #include "../gpc.h"
+#include "../server.h"
 
 /* CUSTOM COMMANDS */
 #define UPDATE_USERS_CMD		"UPDATE USERS\0"
@@ -33,7 +35,7 @@
 #define ERROR_SEND_FILE_MORE_ARGS	"ERROR: \"SEND FILE\" has too many arguments\n"
 #define UPDATE_USERS_SUCCESS_MSG	"Users list updated\n"
 #define LIST_USERS_N_USERS_MSG 		"There are %d children of Iluvatar connected:\n"
-#define EXIT_ARDA_MSG				"Disconnecting from Arda. See you soon, son of Iluvatar\n\n"
+#define EXIT_ARDA_MSG				"\nDisconnecting from Arda. See you soon, son of Iluvatar\n\n"
 
 /* Number of required args for custom command */
 #define UPDATE_USERS_N_ARGS		2
@@ -59,5 +61,13 @@
 * @Return: 0 if EXIT command entered, otherwise 1.
 *********************************************************************/
 int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda, BidirectionalList *users_list);
+
+/*********************************************************************
+* @Purpose: Gets a list of users given a string containing the users and their data.
+* @Params: in: users = string containing the users and their data.
+*          in: length = length of the string.
+* @Return: Returns a bidirectional list of users.
+*********************************************************************/
+BidirectionalList COMMANDS_getListFromString(char *users, int length);
 
 #endif

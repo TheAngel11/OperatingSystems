@@ -192,6 +192,10 @@ void BIDIRECTIONALLIST_goToHead(BidirectionalList * list) {
 	list->poi = list->head->next;
 }
 
+void BIDIRECTIONALLIST_goToHeadPhantom(BidirectionalList * list) {
+	list->poi = list->head;
+}
+
 void BIDIRECTIONALLIST_next(BidirectionalList * list) {
 	if (list->poi == list->tail) {
 		list->error = LIST_ERROR_END;

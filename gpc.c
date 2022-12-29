@@ -15,13 +15,15 @@
 *          in/out: data = data to get from frame.
 * @Return: Returns 1.
 ***********************************************************************/
-char GPC_readFrame(int fd, char *type, char **header, char **data) {
+char GPC_readFrame(int fd, char *type, char **header, char **data) { 			//TODO: Treure prints
 	char *buffer = NULL;
 	char byte = 0x07;
 	unsigned short length = 0;
-
-	// read type (1 byte)
-	read(fd, &byte, sizeof(char));
+	int n;
+	n = read(fd, &byte, sizeof(char));
+	if(n == 0) {
+		return 0;
+	}
 
 	switch (byte) {
 	    case 'A':
@@ -46,15 +48,15 @@ char GPC_readFrame(int fd, char *type, char **header, char **data) {
 		    *type = byte - '0';
 			break;
 	}
-	
 	// skip '['
 	read(fd, &byte, sizeof(char));
-	
+
 	// read header
 	buffer = SHAREDFUNCTIONS_readUntil(fd, ']');
 	*header = strdup(buffer);
 	free(buffer);
 	buffer = NULL;
+
 	// read lenght (2 bytes)
 	read(fd, &length, 2);
 
@@ -76,19 +78,15 @@ char GPC_readFrame(int fd, char *type, char **header, char **data) {
 * 		   in: data = data to send.
 * @Return: Returns 1.
 **********************************************************************/
-char GPC_writeFrame(int fd, char type, char *header, char *data) {
+char GPC_writeFrame(int fd, char type, char *header, char *data, unsigned short length) {			//TODO: Treure prints
 	char *frame = NULL;
  	char byte = 0;
-	unsigned short length = 0;
 	char length_lsB = 0, length_msB = 0;
 	int i = 0, j = 0;
 	int size = 0;
 
-	if (NULL != data) {
-	    length = strlen(data);
-	}
-
 	size = 1 + ((int) strlen(header)) + 2 + 2 + length;
+
 	frame = (char *) malloc (sizeof(char) * size);
 
 	// write type (1 byte)
@@ -115,7 +113,7 @@ char GPC_writeFrame(int fd, char type, char *header, char *data) {
 		    byte = type + '0';
 			break;
 	}
-	
+
 	i = sprintf(frame, "%c[%s]", byte, header);
 
 	// write lenght (2 bytes)
@@ -140,8 +138,40 @@ char GPC_writeFrame(int fd, char type, char *header, char *data) {
 	write(fd, frame, size);
 	free(frame);
 	frame = NULL;
-
 	return (1);
+}
+
+/**********************************************************************
+ * @Purpose: Get the MD5SUM of the given file.
+ * @Params: in: filename = name of the file to get the MD5SUM.
+ * @Return: Returns the MD5SUM of the file.
+ **********************************************************************/
+char *GPC_getMD5Sum(char *filename) {
+	char *md5sum = NULL;
+	int fd_pipe[2];
+	int status = 0;
+	int pid = 0;
+	if(pipe(fd_pipe) == -1) {
+		printMsg("ERROR: The Pipe to check the MD5SUM of the file could not be created\n");
+		return (NULL);
+	}
+	pid = fork();
+	if (0 == pid) {
+		close(fd_pipe[0]);
+		dup2(fd_pipe[1], 1);
+		execlp("md5sum", "md5sum", filename, NULL);
+		close(fd_pipe[1]);
+		exit(1);
+	} else if (pid > 0) {
+		close(fd_pipe[1]);
+		md5sum = SHAREDFUNCTIONS_readUntil(fd_pipe[0], ' ');
+		waitpid(pid, &status, 0);
+		close(fd_pipe[0]);
+	} else {
+		printMsg("ERROR: The fork to check the MD5SUM of the file could not be created\n");
+		return (NULL);
+	}
+	return (md5sum);
 }
 
 /**********************************************************************
@@ -201,47 +231,87 @@ char GPC_updateUsersList(BidirectionalList *list, char *users) {
 		element.ip_network = NULL;
 	} while (i < (int) strlen(users));
 
-	return (1); 
+	return (1);
 }
 
 /**********************************************************************
-* @Purpose: Given the origin user and the message, creates the data field 
+* @Purpose: Given the origin user, the filename, the file size and the
+*           MD5SUM, creates the data field of a send file frame.
+* @Params: in/out: origin_user = the user who sends the file
+*	.	   in/out: filename = the name of the file that the origin user sends
+*	.	   in/out: fileSize = the size of the file that the origin user sends
+*	.	   in/out: md5sum = the MD5SUM of the file that the origin user sends
+* @Return: Returns data of the frame or NULL if there is no data.
+**********************************************************************/
+char * GPC_sendFile(char *origin_user, char *filename, int fileSize, char *md5sum) {
+	char *data = NULL;
+
+	// given the origin user, the filename, the file size and the MD5SUM,
+	// creates the data field of a send file frame
+	asprintf(&data, "%s%c%s%c%d%c%s", origin_user, GPC_DATA_SEPARATOR, filename, GPC_DATA_SEPARATOR, fileSize, GPC_DATA_SEPARATOR, md5sum);
+
+	return (data);
+}
+
+/**********************************************************************
+* @Purpose: Given the origin user and the message, creates the data field
 *			of a send message frame.
-* @Params: in/out: originUser = the user who sends the message
+* @Params: in/out: origin_user = the user who sends the message
 *	.	   in/out: message = the message that the origin user sends
 * @Return: Returns data of the frame or NULL if there is no data.
 **********************************************************************/
-char * GPC_sendMessage(char *originUser, char *message) {
+char * GPC_sendMessage(char *origin_user, char *message) {
 	char *data = NULL;
-	
-	if(strcmp(message, "") == 0) {
-		return NULL; 
+
+	if(strlen(message) == 2) {
+		return NULL;
 	}
 
-	// TODO Remove the first and last character of the message ("") ??
+	// Removing the first and last character of the message ("")
 	message = message + 1;
 	message[strlen(message) - 1] = '\0';
 
-	// given the origin user and the message, creates the data field 
+	// given the origin user and the message, creates the data field
 	// of a send message frame
-	data = (char *) malloc (sizeof(char) * (strlen(originUser) + strlen(message) + 2));
-	sprintf(data, "%s%c%s", originUser, GPC_DATA_SEPARATOR, message);
+	data = (char *) malloc (sizeof(char) * (strlen(origin_user) + strlen(message) + 2));
+	sprintf(data, "%s%c%s", origin_user, GPC_DATA_SEPARATOR, message);
 	return data;
-} 
+}
 
 /**********************************************************************
-* @Purpose: Given the data of a send message frame, finds the origin user and the message 
+ * @Purpose: Given the data of a send file frame, finds the origin user, the filename,
+ * 		 	 the file size and the MD5SUM
+ * @Params: in/out: data = the data of a send file frame
+ * 		    in/out: origin_user = the user who sends the file
+ * 		    in/out: filename = the name of the file that the origin user sends
+ * 		    in/out: file_size = the size of the file that the origin user sends
+ * 		    in/out: md5sum = the MD5SUM of the file that the origin user sends
+ **********************************************************************/
+void GPC_parseSendFileInfo(char *data, char **origin_user, char **filename, int *file_size, char **md5sum) {
+	int i = 0;
+	char *file_size_str = NULL;
+	//data is in the format: originUser + GPC_DATA_SEPARATOR + filename + GPC_DATA_SEPARATOR + file_size + GPC_DATA_SEPARATOR + md5sum
+	*origin_user = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
+	*filename = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
+	file_size_str = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
+	*md5sum = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
+	*file_size = atoi(file_size_str);
+	free(file_size_str);
+}
+
+/**********************************************************************
+* @Purpose: Given the data of a send message frame, finds the origin user and the message
 * @Params: in/out: data = the user who sends the message
-* 		   in/out: originUser = the user who sends the message
+* 		   in/out: origin_user = the user who sends the message
 *		   in/out: message = the message that the origin user sends
 * @Return: Returns 1.
 **********************************************************************/
-void GPC_parseSendMessage(char *data, char **originUser, char **message) {
+void GPC_parseSendMessage(char *data, char **origin_user, char **message) {
 	int i = 0;
 	//data is in the format: originUser + GPC_DATA_SEPARATOR + message
-	*originUser = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
+	*origin_user = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
 	*message = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
-} 
+}
 
 /**********************************************************************
 * @Purpose: Turns a list of users into a string following the GPC
@@ -256,6 +326,10 @@ char * GPC_getUsersFromList(BidirectionalList blist) {
 	int flag_first = 1;
 	Element element;
 
+	if (BIDIRECTIONALLIST_isEmpty(blist)) {
+		return NULL;
+	}
+	
 	BIDIRECTIONALLIST_goToHead(&blist);
 
 	while (BIDIRECTIONALLIST_isValid(blist)) {
@@ -270,13 +344,102 @@ char * GPC_getUsersFromList(BidirectionalList blist) {
 			data = (char *) realloc (data, sizeof(char) * size);
 			strcat(data, buffer);
 		}
-		
+
 		BIDIRECTIONALLIST_next(&blist);
 		free(element.username);
 		element.username = NULL;
 		free(element.ip_network);
 		element.ip_network = NULL;
+		free(buffer);
+		buffer = NULL;
 	}
 
 	return (data);
+}
+
+/**********************************************************************
+ * @Purpose: Creates a message for SEND MSG from one IluvatarSon to another IluvatarSon
+ * 			 that are in the same machine.
+ * @Params: in: origin_user = the user who sends the message
+ * 		   in: msg = the message that the origin user sends
+ * @Return: Returns a string containing the message in our new format.
+ * 		    Returns NULL if the message is empty.
+ * @Note: The message is in the format: msg&origin_user&message
+ **********************************************************************/
+char * GPC_createNeighborMessageMsg(char *origin_user, char *msg) {					//TODO: S'hauria de posar en un mòdul a part, ja que és un protocol propi (no el GPC)
+	char *message = NULL;
+
+	if(strlen(msg) == 2) {
+		return NULL;
+	}
+
+	asprintf(&message, "msg%c%s%c%s", GPC_DATA_SEPARATOR, origin_user, GPC_DATA_SEPARATOR, msg);
+
+	return message;
+}
+
+/**********************************************************************
+ * @Purpose: Given a message SEND MSG from one IluvatarSon to another IluvatarSon
+ * 			 that are in the same machine, finds the origin user and the message.
+ * @Params: in/out: message = the message that the origin user sends
+ * 		    in/out: origin_user = the user who sends the message
+ * 		    in/out: msg = the message that the origin user sends
+ * @Note: The message is in the format: msg&origin_user&message
+ **********************************************************************/
+void GPC_parseCreateNeighborMessageMsg(char *message, char **origin_user, char **msg) {	//TODO: S'hauria de posar en un mòdul a part, ja que és un protocol propi (no el GPC
+	int i = 0;	
+	char *aux = NULL;
+
+	//message is in the format:  msg + originUser + GPC_DATA_SEPARATOR + message
+	// first we get rid of the "msg" part
+	aux = SHAREDFUNCTIONS_splitString(message, GPC_DATA_SEPARATOR, &i);
+	free(aux);
+	*origin_user = SHAREDFUNCTIONS_splitString(message, GPC_DATA_SEPARATOR, &i);
+	*msg = SHAREDFUNCTIONS_splitString(message, GPC_DATA_SEPARATOR, &i);
+
+}
+
+/**********************************************************************
+ * @Purpose: Creates a message for SEND FILE from one IluvatarSon to another IluvatarSon
+ * 			 that are in the same machine.
+ * @Params: in: origin_user = the user who sends the message
+ * 		   in: filename = the name of the file that the origin user sends
+ * 		   in: file_size = the size of the file that the origin user sends
+ * 		   in: md5sum = the md5sum of the file that the origin user sends
+ * @Return: Returns a string containing the message in our new format.
+ * 		    Returns NULL if the message is empty.
+ * @Note: The message is in the format: file&origin_user&filename&file_size&md5sum
+ **********************************************************************/
+char * GPC_createNeighborMessageFileInfo(char *origin_user, char *filename, int file_size, char *md5sum) { //TODO: S'hauria de posar en un mòdul a part, ja que és un protocol propi (no el GPC)
+	char *message = NULL;
+
+	asprintf(&message, "file%c%s%c%s%c%d%c%s", GPC_DATA_SEPARATOR, origin_user, GPC_DATA_SEPARATOR, filename, GPC_DATA_SEPARATOR, file_size, GPC_DATA_SEPARATOR, md5sum);
+
+	return message;
+}
+
+/**********************************************************************
+ * @Purpose: Given a message SEND FILE from one IluvatarSon to another IluvatarSon
+ * 			 that are in the same machine, finds the origin user, the filename, the file size and the md5sum.
+ * @Params: in/out: message = the message that the origin user sends
+ * 		    in/out: origin_user = the user who sends the message
+ * 		    in/out: filename = the name of the file that the origin user sends
+ * 		    in/out: file_size = the size of the file that the origin user sends
+ * 		    in/out: md5sum = the md5sum of the file that the origin user sends
+ * @Note: The message is in the format: file&origin_user&filename&file_size&md5sum
+ **********************************************************************/
+void GPC_parseCreateNeighborMessageFileInfo(char *message, char **origin_user, char **filename, int *file_size, char **md5sum) {	//TODO: S'hauria de posar en un mòdul a part, ja que és un protocol propi (no el GPC
+	int i = 0;	
+	char *aux = NULL;
+
+	//message is in the format:  file + originUser + GPC_DATA_SEPARATOR + message
+	// first we get rid of the "file" part
+	aux = SHAREDFUNCTIONS_splitString(message, GPC_DATA_SEPARATOR, &i);
+	free(aux);
+	*origin_user = SHAREDFUNCTIONS_splitString(message, GPC_DATA_SEPARATOR, &i);
+	*filename = SHAREDFUNCTIONS_splitString(message, GPC_DATA_SEPARATOR, &i);
+	aux = SHAREDFUNCTIONS_splitString(message, GPC_DATA_SEPARATOR, &i);
+	*file_size = atoi(aux);
+	free(aux);
+	*md5sum = SHAREDFUNCTIONS_splitString(message, GPC_DATA_SEPARATOR, &i);
 }

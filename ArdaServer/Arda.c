@@ -20,6 +20,7 @@
 #define READING_FILE_MSG        "Reading configuration file\n"
 #define WAITING_CONNECTIONS_MSG "Waiting for connections...\n\n"
 #define ERROR_N_ARGS_MSG        "ERROR: not enough arguments\n"
+#define ERROR_OPENING_SOCKET_MSG "ERROR: the socket could not be opened\n"
 
 #define ARDA_OK	    			0
 #define ARDA_KO	    			-1
@@ -37,8 +38,10 @@ Server server;
 void sigIntHandler() {   
     SERVER_close(&server);
 	SHAREDFUNCTIONS_freeArda(&arda); 
-    free(server.thread);
-	server.thread = NULL;
+    if(server.thread != NULL) {
+        free(server.thread); 
+	    server.thread = NULL;
+    }
 	printMsg(DISCONNECT_ARDA_MSG);
     printMsg(CLOSING_ARDA_MSG);
     signal(SIGINT, SIG_DFL);
@@ -85,7 +88,7 @@ int readArda(char *filename, Arda *arda) {
 		close(fd);
 	}
 
-	return (error);
+	return (error); 
 }
 
 /*********************************************************************
@@ -124,6 +127,7 @@ int main(int argc, char* argv[]) {
         printMsg(COLOR_RED_TXT);
         asprintf(&buffer, ERROR_OPENING_FILE, argv[1]);
         printMsg(buffer);
+        printMsg(COLOR_DEFAULT_TXT);
         free(buffer);
         SHAREDFUNCTIONS_freeArda(&arda);
         return (-1);
@@ -134,6 +138,10 @@ int main(int argc, char* argv[]) {
 
 	if ((FD_NOT_FOUND == server.listen_fd) || (LIST_NO_ERROR != server.clients.error)) {
 	    SHAREDFUNCTIONS_freeArda(&arda);
+        SERVER_close(&server);
+        printMsg(COLOR_RED_TXT);
+        printMsg(ERROR_OPENING_SOCKET_MSG);
+        printMsg(COLOR_DEFAULT_TXT);
 		return (-1);
 	}
 

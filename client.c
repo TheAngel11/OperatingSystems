@@ -34,6 +34,7 @@ Client CLIENT_init(char *ip, int port) {
 		printMsg(ERROR_SERVER_CONNECTION_MSG);
 		printMsg(COLOR_DEFAULT_TXT);
 		// finish execution
+		close(c.server_fd);
 		c.server_fd = FD_NOT_FOUND;
 		return (c);
 	}
