@@ -24,7 +24,6 @@
 #define END_OF_LINE		    			'\n'
 #define MSG_RECIEVED_MSG                "\nNew message received!\n%s, from %s says:\n\"%s\"\n"
 #define FILE_RECIEVED_MSG               "\nNew file received!\n%s, from %s has sent:\n%s\n"
-#define MSG_NEIGHBOURS_RECIEVED_MSG     "\nNew message received!\nYour neighbor %s says:\n%s\n"
 #define FILE_NEIGHBOURS_RECIEVED_MSG    "\nNew file received!\nYour neighbor %s has sent:\n%s\n"
 #define ERROR_SELECT_MSG                "ERROR: Select failed\n"
 #define ERROR_CREATING_MQ_MSG           "ERROR: Message queue could not be created\n"

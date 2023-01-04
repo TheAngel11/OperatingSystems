@@ -135,16 +135,6 @@ char * GPC_getUsersFromList(BidirectionalList blist);
 char * GPC_createNeighborMessageMsg(char *origin_user, char *msg);
 
 /**********************************************************************
- * @Purpose: Given a message from one IluvatarSon to another IluvatarSon
- * 			 that are in the same machine, finds the origin user and the message.
- * @Params: in/out: message = the message that the origin user sends without the type of message ("msg")
- * 		    in/out: origin_user = the user who sends the message
- * 		    in/out: msg = the message that the origin user sends
- * @Note: The message is in the format: msg&origin_user&message but here we receive it without the type of message ("msg")
- **********************************************************************/
-void GPC_parseCreateNeighborMessageMsg(char *message, char **origin_user, char **msg);
-
-/**********************************************************************
  * @Purpose: Creates a message for SEND FILE from one IluvatarSon to another IluvatarSon
  * 			 that are in the same machine.
  * @Params: in: origin_user = the user who sends the message

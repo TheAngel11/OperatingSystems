@@ -379,27 +379,6 @@ char * GPC_createNeighborMessageMsg(char *origin_user, char *msg) {					//TODO: 
 }
 
 /**********************************************************************
- * @Purpose: Given a message SEND MSG from one IluvatarSon to another IluvatarSon
- * 			 that are in the same machine, finds the origin user and the message.
- * @Params: in/out: message = the message that the origin user sends
- * 		    in/out: origin_user = the user who sends the message
- * 		    in/out: msg = the message that the origin user sends
- * @Note: The message is in the format: msg&origin_user&message
- **********************************************************************/
-void GPC_parseCreateNeighborMessageMsg(char *message, char **origin_user, char **msg) {	//TODO: S'hauria de posar en un mòdul a part, ja que és un protocol propi (no el GPC
-	int i = 0;	
-	char *aux = NULL;
-
-	//message is in the format:  msg + originUser + GPC_DATA_SEPARATOR + message
-	// first we get rid of the "msg" part
-	aux = SHAREDFUNCTIONS_splitString(message, GPC_DATA_SEPARATOR, &i);
-	free(aux);
-	*origin_user = SHAREDFUNCTIONS_splitString(message, GPC_DATA_SEPARATOR, &i);
-	*msg = SHAREDFUNCTIONS_splitString(message, GPC_DATA_SEPARATOR, &i);
-
-}
-
-/**********************************************************************
  * @Purpose: Creates a message for SEND FILE from one IluvatarSon to another IluvatarSon
  * 			 that are in the same machine.
  * @Params: in: origin_user = the user who sends the message

@@ -3,7 +3,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 11/12/2022
+* @Last change: 04/01/2023
 *********************************************************************/
 #define _GNU_SOURCE 1
 #include <stdio.h>
@@ -19,6 +19,7 @@
 #include "commands.h"
 #include "../sharedFunctions.h"
 #include "../gpc.h"
+#include "../icp.h"
 #include "../client.h"
 
 #define MIN_N_ARGS 					2
@@ -140,15 +141,100 @@ int readIluvatarSon(char *filename, IluvatarSon *iluvatar) {
 }
 
 /*********************************************************************
- * @Purpose: Manages the connections with other IluvatarSons.
- * @Params: in: iluvatar = pointer to IluvatarSon referencing the
- * 					  IluvatarSon to manage
- * @Return: Returns NULL
- *********************************************************************/
+* @Purpose: Send connection frame to Arda server and gets the current
+*           list of users.
+* @Params: ----
+* @Return: Returns 1 if an error occurred, otherwise 0.
+*********************************************************************/
+char connectToArda() {
+	char *buffer = NULL;
+	char *header = NULL;
+	char type = 0x07;
+
+	// notify connection to Arda
+	asprintf(&buffer, "%s%c%s%c%d%c%d", iluvatarSon.username, GPC_DATA_SEPARATOR,
+	                                    iluvatarSon.ip_address, GPC_DATA_SEPARATOR,
+										iluvatarSon.port, GPC_DATA_SEPARATOR, getpid());
+	GPC_writeFrame(client.server_fd, 0x01, GPC_CONNECT_SON_HEADER, buffer, strlen(buffer));
+	free(buffer);
+	buffer = NULL;
+	// wait for answer
+	GPC_readFrame(client.server_fd, &type, &header, &buffer);
+
+	// check connection
+	if (0 == strcmp(header, GPC_HEADER_CONKO)) {
+	    printMsg(COLOR_RED_TXT);
+		printMsg(ARDA_CONNECTION_DENIED_MSG);
+		printMsg(COLOR_DEFAULT_TXT);
+
+		// Writing the exit frame
+		if(iluvatarSon.username != NULL) {
+			GPC_writeFrame(client.server_fd, 0x06, GPC_EXIT_HEADER, iluvatarSon.username, strlen(iluvatarSon.username));
+		}
+
+		// free mem
+		free(buffer);
+		buffer = NULL;
+		free(header);
+		header = NULL;
+		SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
+		BIDIRECTIONALLIST_destroy(&users_list);
+		close(client.server_fd);
+		return (1);
+	}
+
+	free(header);
+	header = NULL;
+	// update list of users
+	GPC_updateUsersList(&users_list, buffer);
+	free(buffer);
+	buffer = NULL;
+	return (0);
+}
+
+/*********************************************************************
+* @Purpose: Manages the connections with other IluvatarSons.
+* @Params: ----
+* @Return: Returns NULL
+*********************************************************************/
 void *iluvatarAccept() {
 	// Running the server
 	SERVER_runIluvatar(&iluvatarSon, &server, &mutex_print);
 	return NULL;
+}
+
+/*********************************************************************
+* @Purpose: Opens command line for user and executes the entered
+*           commands.
+* @Params: ----
+* @Return: Returns 1 when EXIT command is entered, otherwise 0.
+*********************************************************************/
+int manageUserPrompt() {
+	int is_exit = 0;
+	char *buffer = NULL;
+
+	// get command
+	iluvatar_command = SHAREDFUNCTIONS_readUntil(STDIN_FILENO, CMD_END_BYTE);
+	pthread_mutex_lock(&mutex_print);
+	printMsg(COLOR_DEFAULT_TXT);
+	pthread_mutex_unlock(&mutex_print);
+	
+	// execute command
+	if (NULL != iluvatar_command) {
+		is_exit = COMMANDS_executeCommand(iluvatar_command, &iluvatarSon, client.server_fd, &users_list);	//TODO: passar-li el mutex i protegir tots els STDIN de commands.c
+		free(iluvatar_command);
+		iluvatar_command = NULL;
+	}
+	
+	// reopen command line
+	asprintf(&buffer, CMD_LINE_PROMPT, COLOR_CLI_TXT, CMD_ID_BYTE);
+	pthread_mutex_lock(&mutex_print);
+	printMsg(buffer);
+	pthread_mutex_unlock(&mutex_print);
+	free(buffer);
+	buffer = NULL;
+
+	return (is_exit);
 }
 
 /*********************************************************************
@@ -170,14 +256,12 @@ int main(int argc, char* argv[]) {
 	//char *md5sum_verification = "FILE_KO";			// TODO: es estàtic (maybe hauria de ser reservant memòria)
 	struct mq_attr attr;
     char *buffer = NULL;
-	char *command = iluvatar_command;
 	int exit_program = 0, read_ok = ILUVATARSON_KO;
 	char *header = NULL;
 	char type = 0x07;
 	fd_set read_fds;
 
 	iluvatarSon = newIluvatarSon();
-	users_list = BIDIRECTIONALLIST_create();
 	// Configure SIGINT
 	signal(SIGINT, sigintHandler);
 
@@ -205,10 +289,11 @@ int main(int argc, char* argv[]) {
 			free(buffer);
 			printMsg(COLOR_DEFAULT_TXT);
 			SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
-			return (0);
+			return (-1);
 		}
 
-		// Open active socket
+		users_list = BIDIRECTIONALLIST_create();
+		// Open active socket (connection with Arda)
 		client = CLIENT_init(iluvatarSon.arda_ip_address, iluvatarSon.arda_port);
 
 		if (FD_NOT_FOUND == client.server_fd) {
@@ -217,36 +302,11 @@ int main(int argc, char* argv[]) {
 			return (-1);
 		}
 
-		// notify connection to Arda
-		asprintf(&buffer, "%s%c%s%c%d%c%d", iluvatarSon.username, GPC_DATA_SEPARATOR, iluvatarSon.ip_address, GPC_DATA_SEPARATOR, iluvatarSon.port, GPC_DATA_SEPARATOR, getpid());
-		GPC_writeFrame(client.server_fd, 0x01, GPC_CONNECT_SON_HEADER, buffer, strlen(buffer));
-		free(buffer);
-		buffer = NULL;
-		// wait for answer
-		GPC_readFrame(client.server_fd, &type, &header, &buffer);
-
-		// check connection
-		if (0 == strcmp(header, GPC_HEADER_CONKO)) {
-		    printMsg(COLOR_RED_TXT);
-			printMsg(ARDA_CONNECTION_DENIED_MSG);
-			printMsg(COLOR_DEFAULT_TXT);
-			// Writing the exit frame
-			if(iluvatarSon.username != NULL) {
-				GPC_writeFrame(client.server_fd, 0x06, GPC_EXIT_HEADER, iluvatarSon.username, strlen(iluvatarSon.username));
-			}
-			// free mem
-			free(buffer);
-			buffer = NULL;
-			free(header);
-			header = NULL;
-			SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
-			BIDIRECTIONALLIST_destroy(&users_list);
-			close(client.server_fd);
-
-			return (1);
+		if (0 != connectToArda()) {
+			return (-1);
 		}
 		
-		// Open passive socket
+		// Open passive socket (prepare Iluvatar server)
 		server = SERVER_init(iluvatarSon.ip_address, iluvatarSon.port);
 
 		if ((FD_NOT_FOUND == server.listen_fd) || (LIST_NO_ERROR != server.clients.error)) {
@@ -256,7 +316,7 @@ int main(int argc, char* argv[]) {
 			return (-1);
 		}
 
-		// Creating the thread to accept connections
+		// Create thread to accept connections
 		if (pthread_create(&thread_accept, NULL, iluvatarAccept, NULL) != 0) {
 			printMsg(COLOR_RED_TXT);
 			printMsg(ERROR_CREATING_THREAD_MSG);
@@ -271,41 +331,25 @@ int main(int argc, char* argv[]) {
 			BIDIRECTIONALLIST_destroy(&server.clients);
 			return (-1);
 		}
-		// Up to here, iluvatarSon has different more than one thread, so we need to protect the STDIN
 
-		free(header);
-		header = NULL;
-		// update list of users
-		GPC_updateUsersList(&users_list, buffer);
-		free(buffer);
-		buffer = NULL;
-
-		// Creating the queue
+		// From here, iluvatarSon has more than one thread, so we need to protect the STDIN
+		// Create queue
 		asprintf(&buffer, "/%d", getpid());
 		qfd = mq_open(buffer, O_RDWR | O_CREAT | O_EXCL, 0600, NULL);
 		free(buffer);
 		buffer = NULL;
 
 		if (qfd == (mqd_t) -1) {  
-			pthread_mutex_lock(&mutex_print);		//TODO: Potser s'hauria de cridar a un raise(SIGINT) o disconnectManager() per estalviar linies
+			pthread_mutex_lock(&mutex_print);
 			printMsg(COLOR_RED_TXT);
 			printMsg(ERROR_CREATING_MQ_MSG);
 			printMsg(COLOR_DEFAULT_TXT);
 			pthread_mutex_unlock(&mutex_print);
-			// free memory
-			SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);			
-			free(server.thread);	
-			server.thread = NULL;
-			// close FDs
-			close(server.listen_fd);
-			closeAllClientFDs(&server);
-			BIDIRECTIONALLIST_destroy(&server.clients);
-			pthread_cancel(thread_accept);
-			pthread_join(thread_accept, NULL);
-			pthread_detach(thread_accept);
-			return (-1);
+			// finish execution and disconnect from Arda
+			raise(SIGINT);
 		}
-		// we get the attributes of the queue
+
+		// get attributes of the queue
 		mq_getattr(qfd, &attr);
 
 		// welcome user
@@ -342,20 +386,20 @@ int main(int argc, char* argv[]) {
 				exit_program = 1;
 			} else if (FD_ISSET(client.server_fd, &read_fds)) {				
 				// If the read frame returns 0, it means that the connection has been closed
-				if(GPC_readFrame(client.server_fd, &type, &header, &buffer) == 0) {
+				if (GPC_readFrame(client.server_fd, &type, &header, &buffer) == 0) {
 					pthread_mutex_lock(&mutex_print);
 					printMsg(COLOR_RED_TXT);
 					printMsg(ARDA_CONNECTION_CLOSED_MSG);
 					printMsg(COLOR_DEFAULT_TXT);
 					pthread_mutex_unlock(&mutex_print);
 					exit_program = 1;
-				} else if (strcmp(header, GPC_UPDATE_USERS_HEADER_OUT) == 0 && type == 0x02){
+				} else if ((0 == strcmp(header, GPC_UPDATE_USERS_HEADER_OUT)) && (0x02 == type)){
 					// Manage UPDATE USERS
 					BIDIRECTIONALLIST_destroy(&users_list);
 					users_list = COMMANDS_getListFromString(buffer, (int) strlen(buffer));
 					free(buffer);
 					buffer = NULL;
-				} else if(strcmp(header, GPC_HEADER_CONOK) == 0 && type == 0x06) {
+				} else if ((0 == strcmp(header, GPC_HEADER_CONOK)) && (0x06 == type)) {
 					// Manage EXIT
 					pthread_mutex_lock(&mutex_print);
 					printMsg(COLOR_DEFAULT_TXT);
@@ -371,24 +415,8 @@ int main(int argc, char* argv[]) {
 				}
 				
 			} else if (FD_ISSET(STDIN_FILENO, &read_fds)) {
-				// get command
-				command = SHAREDFUNCTIONS_readUntil(STDIN_FILENO, CMD_END_BYTE);
-				pthread_mutex_lock(&mutex_print);
-				printMsg(COLOR_DEFAULT_TXT);
-				pthread_mutex_unlock(&mutex_print);
-				// execute command
-				if(NULL != command) {
-					exit_program = COMMANDS_executeCommand(command, &iluvatarSon, client.server_fd, &users_list);	//TODO: passar-li el mutex i protegir tots els STDIN de commands.c
-					free(command);
-					command = NULL;
-				}
-				// reopen command line
-				asprintf(&buffer, CMD_LINE_PROMPT, COLOR_CLI_TXT, CMD_ID_BYTE);
-				pthread_mutex_lock(&mutex_print);
-				printMsg(buffer);
-				pthread_mutex_unlock(&mutex_print);
-				free(buffer);
-				buffer = NULL;
+				// reads and executes the command, then prepares the prompt for next command
+				exit_program = manageUserPrompt();
 			} else if (FD_ISSET(qfd, &read_fds)) {
 				pthread_mutex_lock(&mutex_print);
 				printMsg(COLOR_DEFAULT_TXT);
@@ -406,18 +434,11 @@ int main(int argc, char* argv[]) {
 					buffer = strdup(message_receive);
 					mq_type = strtok(buffer, "&");
 
-					if(strcmp(mq_type, "msg") == 0) {
+					if (strcmp(mq_type, "msg") == 0) {
 						// It is a send message message
-						GPC_parseCreateNeighborMessageMsg(message_receive, &origin_user, &msg);
+						ICP_sendMsg(message_receive, &mutex_print);
 
-						asprintf(&buffer, MSG_NEIGHBOURS_RECIEVED_MSG, origin_user, msg);
-						pthread_mutex_lock(&mutex_print);
-						printMsg(buffer);
-						pthread_mutex_unlock(&mutex_print);
-						free(buffer);
-						buffer = NULL;
-
-					} else if(strcmp(mq_type, "file") == 0) {
+					} else if (strcmp(mq_type, "file") == 0) {
 						// It is a send file message
 						//md5sum_verification = "FILE_KO";
 
@@ -428,7 +449,7 @@ int main(int argc, char* argv[]) {
 						asprintf(&filename_path, ".%s/%s", iluvatarSon.directory, filename);
 						
 						file_fd = open(filename_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);		//TODO: revisar si està bé posar aquests permisos (a l'igual que al send file de diferents maquines)
-						while(file_size > GPC_FILE_MAX_BYTES && !exit_program) {
+						while (file_size > GPC_FILE_MAX_BYTES && !exit_program) {
 							// Read the message
 							message_receive = (char *) malloc((attr.mq_msgsize + 1) * sizeof(char));	//TODO: S'hauria de canviar a la mida justa, però si li GPC_FILE_MAX_BYTES file_size + 1 peta el valgrind
 							if (mq_receive(qfd, message_receive, attr.mq_msgsize, NULL) == -1) {
@@ -516,27 +537,32 @@ int main(int argc, char* argv[]) {
 				}
 			}
 
-			if(header != NULL) {
+			if (header != NULL) {
 				free(header);
 				header = NULL;
 			}
-			if(buffer != NULL) {
+			
+			if (buffer != NULL) {
 				free(buffer);
 				buffer = NULL;
 			}
-			if(origin_user != NULL) {
+
+			if (origin_user != NULL) {
 				free(origin_user);
 				origin_user = NULL;
 			}
-			if(msg != NULL) {
+			
+			if (msg != NULL) {
 				free(msg);
 				msg = NULL;
 			}
-			if(message_receive != NULL) {
+
+			if (message_receive != NULL) {
 				free(message_receive);
 				message_receive = NULL;
 			}
-			if(mq_type != NULL) {
+			
+			if (mq_type != NULL) {
 				free(mq_type);
 				mq_type = NULL;
 			}

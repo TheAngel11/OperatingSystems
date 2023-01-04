@@ -4,7 +4,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 10/12/2022
-* @Last change: 29/12/2022
+* @Last change: 03/01/2023
 *********************************************************************/
 #include "server.h"
 
@@ -115,18 +115,15 @@ void answerConnectionRequest(Server *s, char **data, int client_fd) {
 	pthread_mutex_lock(s->mutex_print);
 	printMsg(UPDATING_LIST_MSG);
 	pthread_mutex_unlock(s->mutex_print);
-	// We check with mutual exclusion that only 1 process is added to the list at the same time
-	// if there are 2 or more users connecting at the same time
+	// mutual exclusion so that only 1 process is added to the list at the same time
 	pthread_mutex_lock(&s->mutex);
-	// Adding the client to the list (critical region)
-	// If the list is empty, we add the element to the head
-	// If not, we add it to the next position
+	
+	// add the client to the list (critical region)
 	if(BIDIRECTIONALLIST_isEmpty(s->clients)) {
 		BIDIRECTIONALLIST_goToHeadPhantom(&s->clients);
 	}
 	
 	BIDIRECTIONALLIST_addAfter(&s->clients, element);
-
 	pthread_mutex_unlock(&s->mutex);
 	free(element.username);
 	element.username = NULL;
@@ -135,6 +132,7 @@ void answerConnectionRequest(Server *s, char **data, int client_fd) {
 	pthread_mutex_lock(s->mutex_print);
 	printMsg(SENDING_LIST_MSG);
 	pthread_mutex_unlock(s->mutex_print);
+	
 	// Write connexion frame
 	if (s->clients.error == LIST_NO_ERROR) {
 		buffer = GPC_getUsersFromList(s->clients);
@@ -144,10 +142,30 @@ void answerConnectionRequest(Server *s, char **data, int client_fd) {
 	} else {
 	    GPC_writeFrame(client_fd, 0x01, GPC_HEADER_CONKO, NULL, 0); 
 	}
+
 	pthread_mutex_lock(s->mutex_print);
 	printMsg(RESPONSE_SENT_LIST_MSG);
 	printMsg(COLOR_DEFAULT_TXT);
 	pthread_mutex_unlock(s->mutex_print);
+}
+
+void answerListPetition(Server *s, char **data, int client_fd) {
+    char *buffer = NULL;
+
+	// data is the username
+	asprintf(&buffer, PETITION_UPDATE_MSG, *data, *data);
+	pthread_mutex_lock(s->mutex_print);
+	printMsg(buffer);
+	pthread_mutex_unlock(s->mutex_print);
+	free(buffer);
+	buffer = NULL;
+	free(*data);
+	*data = NULL;
+	// We don't need to apply mutex because the list is not modified
+	buffer = GPC_getUsersFromList(s->clients);
+	GPC_writeFrame(client_fd, 0x02, GPC_UPDATE_USERS_HEADER_OUT, buffer, strlen(buffer));
+	free(buffer);
+	buffer = NULL;
 }
 
 void answerExitPetition(Server *s, char **data, int client_fd) {
@@ -167,52 +185,52 @@ void answerExitPetition(Server *s, char **data, int client_fd) {
 	printMsg(UPDATING_LIST_MSG);
 	pthread_mutex_unlock(s->mutex_print);
 	// Removing client from the list
-	// We check with mutual exclusion that only 1 process is removed to the list at the same time
-	// if there are 2 or more users disconnecting at the same time
 	pthread_mutex_lock(&s->mutex);
+	
 	// Critical region
-	if(!BIDIRECTIONALLIST_isEmpty(s->clients)) {
+	if (!BIDIRECTIONALLIST_isEmpty(s->clients)) {
 		BIDIRECTIONALLIST_goToHead(&s->clients);
-		// 1 - Searching the client			
-		while(BIDIRECTIONALLIST_isValid(s->clients) && !found) {
+		// search client			
+		while (BIDIRECTIONALLIST_isValid(s->clients) && !found) {
 			element = BIDIRECTIONALLIST_get(&s->clients);
 			
-			if(strcmp(element.username, *data) == 0) {
+			if (strcmp(element.username, *data) == 0) {
 				found = 1;
 			} else {
 				BIDIRECTIONALLIST_next(&s->clients);
 			}
+
 			free(element.username);
 			element.username = NULL;
 			free(element.ip_network);
 			element.ip_network = NULL;
 		}
 		
-		// 2 - Removing the client (critical region)
+		// remove client (critical region)
 		BIDIRECTIONALLIST_remove(&s->clients);
 	} else {
 		is_empty = 1;
 	}
+
 	pthread_mutex_unlock(&s->mutex);
 	pthread_mutex_lock(s->mutex_print);
 	printMsg(COLOR_DEFAULT_TXT);
 	printMsg(SENDING_LIST_MSG);
 	pthread_mutex_unlock(s->mutex_print);
 
-	// 3 - writing the exit frame
-	if (s->clients.error == LIST_NO_ERROR && !is_empty && found) {
+	// write exit frame
+	if ((s->clients.error == LIST_NO_ERROR) && !is_empty && found) {
 	    GPC_writeFrame(client_fd, 0x06, GPC_HEADER_CONOK, NULL, 0);             
 	} else {
 	    GPC_writeFrame(client_fd, 0x06, GPC_HEADER_CONKO, NULL, 0);
-	}             
+	}
+
 	pthread_mutex_lock(s->mutex_print);
 	printMsg(RESPONSE_SENT_LIST_MSG);
 	printMsg(COLOR_DEFAULT_TXT);
 	pthread_mutex_unlock(s->mutex_print);
-	// 4 - Closing the client connection
-//	free(header);
-//	header = NULL;
-
+	
+	// close the client connection
 	if (NULL != *data) {
 	    free(*data);
 	    *data = NULL;
@@ -234,7 +252,7 @@ void *ardaClient(void *args) {
     char type = 0x07;
     char *header = NULL;
     char *data = NULL;
-    char *buffer = NULL;
+    //char *buffer = NULL;
 	// s->client_fd is the fd of the last client connected, so we need to save it
 	int client_fd = s->client_fd;
 	int index_thread = s->n_threads - 1;
@@ -251,24 +269,7 @@ void *ardaClient(void *args) {
             
             // Update list petition
             case 0x02:
-                // data is the username
-                asprintf(&buffer, PETITION_UPDATE_MSG, data, data);
-				pthread_mutex_lock(s->mutex_print);
-                printMsg(buffer);
-				pthread_mutex_unlock(s->mutex_print);
-                free(buffer);
-				buffer = NULL;
-				free(data);
-				data = NULL;
-                // We don't need to apply mutex because the list is not modified
-				data = GPC_getUsersFromList(s->clients);
-
-				// TODO: print the list
-				//printMsg("List of users: ");
-				//printMsg(data);
-				//printMsg("\n"); 
-
-                GPC_writeFrame(client_fd, 0x02, GPC_UPDATE_USERS_HEADER_OUT, data, strlen(data));   
+                answerListPetition(s, &data, client_fd);
                 break;
             
             // Types not implemented yet
@@ -307,11 +308,6 @@ void *ardaClient(void *args) {
 		if (NULL != header) {
 		    free(header);
 			header = NULL;
-		}
-
-		if(buffer != NULL) {
-			free(buffer);
-			buffer = NULL;
 		}
         
 		type = 0x07;
@@ -639,7 +635,7 @@ void SERVER_close(Server *server) {
 	
 	// We terminate and realease the resources of the not finished threads
 	for (i = 0; i < server->n_threads; i++) {			//CLAUDIA: el problema d'aixo és que si es fan 100.000 threads i casi tots estan acabats, es faran moltes voltes del bucle innecessàriament
-		if(server->thread[i].terminated != 1) {			//Ademes, segueix havent 1 leak en un thread de arda
+		if(server->thread[i].terminated != 1) {
 			pthread_cancel(server->thread[i].id);
 			pthread_join(server->thread[i].id, NULL);
 			pthread_detach(server->thread[i].id);

@@ -4,7 +4,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 10/12/2022
+* @Last change: 03/01/2023
 *********************************************************************/
 #include "commands.h"
 #include "../client.h"
@@ -172,7 +172,8 @@ char * getHostnameByIP(char *ip_address) {
 }
 
 /*********************************************************************
-* @Purpose: Gets a list of users given a string containing the users and their data.
+* @Purpose: Gets a list of users given a string containing the users
+*           and their data.
 * @Params: in: users = string containing the users and their data.
 *          in: length = length of the string.
 * @Return: Returns a bidirectional list of users.
@@ -197,13 +198,6 @@ BidirectionalList COMMANDS_getListFromString(char *users, int length) {
 		user.pid = atoi(tmp);
 		free(tmp);
 		tmp = NULL;
-
-		//TODO: debug
-		//char *buffer = NULL;
-		//asprintf(&buffer, "%d. %s %s %d %s %d\n", i, user.username, user.ip_network, user.port, getHostnameByIP(user.ip_network), user.pid);
-		//printMsg(buffer);
-		//free(buffer);
-
 		// add to list
 		BIDIRECTIONALLIST_addAfter(&list, user);
 		// next user
@@ -583,10 +577,10 @@ char mqSendFile(mqd_t qfd, char *filename, IluvatarSon iluvatar) {
 * @Purpose: Executes a custom command given its ID. Currently only
 *           prints the selected command.
 * @Params: in: id = ID of the custom command to execute
-* @Params: in: iluvatar = ID of the custom command to execute
-* @Params: in: clients = ID of the custom command to execute
-* @Params: in: command = ID of the custom command to execute
-
+*          in: fd_dest = file descriptor to send frames
+*          in: iluvatar = IluvatarSon that executes command
+*          in/out: clients = list of clients
+*          in/out: command = string containing the command to execute
 * @Return: ----
 *********************************************************************/
 char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, BidirectionalList *clients, char **command) {
@@ -604,26 +598,26 @@ char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 			printMsg(UPDATE_USERS_SUCCESS_MSG);
 			// request list
 			GPC_writeFrame(fd_dest, 0x02, GPC_UPDATE_USERS_HEADER_IN, iluvatar.username, strlen(iluvatar.username));
-			// The response is controlled by the thread manageServerFD
 			break;
 		case IS_LIST_USERS_CMD:
 			printUsersList(*clients);
 			break;
 		case IS_SEND_MSG_CMD:
+		    // send frame to count new message
 		case IS_SEND_FILE_CMD:
 			// Find the user
 			e = findUserByList(*clients, command[2]);
-			if(e.username != NULL && e.ip_network != NULL) {
-				if(strchr(command[3], '.') != NULL || id == IS_SEND_MSG_CMD) {
+			if (e.username != NULL && e.ip_network != NULL) {
+				if (strchr(command[3], '.') != NULL || id == IS_SEND_MSG_CMD) {
 					// We get the hostnames to compare them
 					originHostname = getHostnameByIP(iluvatar.ip_address);
 					destHostname = getHostnameByIP(e.ip_network);
 
 					// We get the hostname of the origin and destination to check if they are in the same machine
-					if(strcmp(destHostname, originHostname) == 0) {
+					if (strcmp(destHostname, originHostname) == 0) {
 						// If they are in the same machine, we use message queues
 						// We check if the user is sending a message to himself
-						if(strcasecmp(e.username, iluvatar.username) != 0) {
+						if (strcasecmp(e.username, iluvatar.username) != 0) {
 							// Open the queue
 							asprintf(&buffer, "/%d", e.pid);
 							qfd = mq_open(buffer, O_RDWR);
@@ -691,9 +685,7 @@ char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 			break;
 		default:
 		    // exit command
-			// notify Arda
 			GPC_writeFrame(fd_dest, 0x06, GPC_EXIT_HEADER, iluvatar.username, strlen(iluvatar.username));
-			// The response is controlled by the thread manageServerFD
 			break;
 	}
 
