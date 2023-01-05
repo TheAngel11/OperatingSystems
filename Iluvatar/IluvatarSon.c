@@ -3,7 +3,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 04/01/2023
+* @Last change: 05/01/2023
 *********************************************************************/
 #define _GNU_SOURCE 1
 #include <stdio.h>
@@ -13,6 +13,7 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <mqueue.h>
 
 #include "../bidirectionallist.h"
 #include "../server.h"
@@ -38,34 +39,43 @@ pthread_t thread_accept;
 pthread_mutex_t mutex_print = PTHREAD_MUTEX_INITIALIZER;
 
 /*********************************************************************
- * @Purpose: Free memory and close any open file descriptors before
- * 		 	 terminating program.
- * @Params: ----
- * @Return: ----
- * *******************************************************************/
+* @Purpose: Free memory and close any open file descriptors before
+* 		 	 terminating program.
+* @Params: ----
+* @Return: ----
+*********************************************************************/
 void disconnectionManager(){
 	char *buffer = NULL;
 
+	// close thread
 	pthread_cancel(thread_accept);
 	pthread_join(thread_accept, NULL);
 	pthread_detach(thread_accept);
+	// close message queue
 	mq_close(qfd);
 	asprintf(&buffer, "/%d", getpid());
 	mq_unlink(buffer);
+	// free memory
 	free(buffer);
+	buffer = NULL;
     SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
+	
 	if (NULL != iluvatar_command) {
 	    free(iluvatar_command);
+		iluvatar_command = NULL;
 	}
-	BIDIRECTIONALLIST_destroy(&users_list);
 
+	BIDIRECTIONALLIST_destroy(&users_list);
+	// close Iluvatar server
 	SERVER_close(&server);
 	free(server.thread);
 	close(client.server_fd);
-	if(server.client_fd > 0) {
+	
+	if (server.client_fd > 0) {
 		close(server.client_fd);
 	}
 
+	// reset command line
 	printMsg(COLOR_DEFAULT_TXT);
 }
 
@@ -204,6 +214,22 @@ void *iluvatarAccept() {
 }
 
 /*********************************************************************
+* @Purpose: Opens the command line for the user.
+* @Params: ----
+* @Return: ----
+*********************************************************************/
+void openCLI() {
+	char *buffer = NULL;
+
+	asprintf(&buffer, CMD_LINE_PROMPT, COLOR_CLI_TXT, CMD_ID_BYTE);
+	pthread_mutex_lock(&mutex_print);
+	printMsg(buffer);
+	pthread_mutex_unlock(&mutex_print);
+	free(buffer);
+	buffer = NULL;
+}
+
+/*********************************************************************
 * @Purpose: Opens command line for user and executes the entered
 *           commands.
 * @Params: ----
@@ -211,7 +237,6 @@ void *iluvatarAccept() {
 *********************************************************************/
 int manageUserPrompt() {
 	int is_exit = 0;
-	char *buffer = NULL;
 
 	// get command
 	iluvatar_command = SHAREDFUNCTIONS_readUntil(STDIN_FILENO, CMD_END_BYTE);
@@ -227,12 +252,7 @@ int manageUserPrompt() {
 	}
 	
 	// reopen command line
-	asprintf(&buffer, CMD_LINE_PROMPT, COLOR_CLI_TXT, CMD_ID_BYTE);
-	pthread_mutex_lock(&mutex_print);
-	printMsg(buffer);
-	pthread_mutex_unlock(&mutex_print);
-	free(buffer);
-	buffer = NULL;
+	openCLI();
 
 	return (is_exit);
 }
@@ -248,12 +268,6 @@ int main(int argc, char* argv[]) {
 	char *mq_type = NULL;
 	char *origin_user = NULL;
 	char *msg = NULL;
-	char *filename = NULL;
-	char *filename_path = NULL;
-	int file_size = 0;
-	char *md5sum = NULL;
-	int file_fd = -1;
-	//char *md5sum_verification = "FILE_KO";			// TODO: es estàtic (maybe hauria de ser reservant memòria)
 	struct mq_attr attr;
     char *buffer = NULL;
 	int exit_program = 0, read_ok = ILUVATARSON_KO;
@@ -287,6 +301,7 @@ int main(int argc, char* argv[]) {
 			asprintf(&buffer, ERROR_OPENING_FILE, argv[1]);
 			printMsg(buffer);
 			free(buffer);
+			buffer = NULL;
 			printMsg(COLOR_DEFAULT_TXT);
 			SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
 			return (-1);
@@ -361,14 +376,9 @@ int main(int argc, char* argv[]) {
 		buffer = NULL;
 
 		// open command line
-		asprintf(&buffer, CMD_LINE_PROMPT, COLOR_CLI_TXT, CMD_ID_BYTE);
-		pthread_mutex_lock(&mutex_print);
-		printMsg(buffer);
-		pthread_mutex_unlock(&mutex_print);
-		free(buffer);
-		buffer = NULL;
-		
+		openCLI();
 		FD_ZERO (&read_fds);
+		
 		// get commands
 		while (!exit_program) {
 			// add FDs to set
@@ -435,90 +445,11 @@ int main(int argc, char* argv[]) {
 					mq_type = strtok(buffer, "&");
 
 					if (strcmp(mq_type, "msg") == 0) {
-						// It is a send message message
-						ICP_sendMsg(message_receive, &mutex_print);
-
+						// show received message
+						ICP_receiveMsg(message_receive, &mutex_print);
 					} else if (strcmp(mq_type, "file") == 0) {
-						// It is a send file message
-						//md5sum_verification = "FILE_KO";
-
-						GPC_parseCreateNeighborMessageFileInfo(message_receive, &origin_user, &filename, &file_size, &md5sum);
-						free(message_receive);
-						message_receive = NULL;
-
-						asprintf(&filename_path, ".%s/%s", iluvatarSon.directory, filename);
-						
-						file_fd = open(filename_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);		//TODO: revisar si està bé posar aquests permisos (a l'igual que al send file de diferents maquines)
-						while (file_size > GPC_FILE_MAX_BYTES && !exit_program) {
-							// Read the message
-							message_receive = (char *) malloc((attr.mq_msgsize + 1) * sizeof(char));	//TODO: S'hauria de canviar a la mida justa, però si li GPC_FILE_MAX_BYTES file_size + 1 peta el valgrind
-							if (mq_receive(qfd, message_receive, attr.mq_msgsize, NULL) == -1) {
-								pthread_mutex_lock(&mutex_print);
-								printMsg(COLOR_RED_TXT);
-								printMsg(ERROR_RECEIVING_MSG_MSG);
-								printMsg(COLOR_DEFAULT_TXT);
-								pthread_mutex_unlock(&mutex_print);
-								perror("mq_receive");
-								exit_program = 1;
-							} else {
-								if(message_receive != NULL) {
-									write(file_fd, message_receive, GPC_FILE_MAX_BYTES);
-								}
-							}
-							
-							free(message_receive);
-							message_receive = NULL;
-							file_size -= GPC_FILE_MAX_BYTES;
-						}
-
-						// Read the last message
-						message_receive = (char *) malloc((attr.mq_msgsize + 1) * sizeof(char));	//TODO: S'hauria de canviar a la mida justa, però si li envio file_size + 1 peta el valgrind
-
-						if (mq_receive(qfd, message_receive, attr.mq_msgsize, NULL) == -1) {
-							pthread_mutex_lock(&mutex_print);
-							printMsg(COLOR_RED_TXT);
-							printMsg(ERROR_RECEIVING_MSG_MSG);
-							printMsg(COLOR_DEFAULT_TXT);
-							pthread_mutex_unlock(&mutex_print);
-							exit_program = 1; 
-						} else {
-							if(message_receive != NULL) {
-								write(file_fd, message_receive, file_size);
-							}
-						}
-
-						free(message_receive);
-						message_receive = NULL;
-						close(file_fd);
-
-						// We check the md5sum
-						buffer = GPC_getMD5Sum(filename_path);
-						free(filename_path);
-
-						if(strcmp(buffer, md5sum) == 0) {
-						//	md5sum_verification = "FILE_OK";
-							free(buffer);
-							asprintf(&buffer, FILE_NEIGHBOURS_RECIEVED_MSG, origin_user, filename);
-							pthread_mutex_lock(&mutex_print);
-							printMsg(buffer);
-							pthread_mutex_unlock(&mutex_print);
-							free(buffer);
-							buffer = NULL;						
-						} 
-
-						//Sending a message to the origin user saying the md5sum verification result			//TODO: s'ha de crear un semàfor de sincronització per a que aquest missatge el rebi el que ha enviat el fitxer a commands.c, i no aquest, que l'ha rebut (ja que si descomento això i la rebuda a commands.c, el select d'aquí rep el missatge que he enviat aquí i no s'envia a qui li vull enviar)
-						/*if(mq_send(qfd, md5sum_verification, strlen(md5sum_verification) + 1,  0) == -1) {
-							pthread_mutex_lock(&mutex_print);
-							printMsg(COLOR_RED_TXT);
-							printMsg("ERROR: The message could not be sent\n");
-							printMsg(COLOR_DEFAULT_TXT);
-							pthread_mutex_unlock(&mutex_print);
-							exit_program = 1; 
-						}*/
-
-						free(message_receive);
-						message_receive = NULL;
-
+						// save received file
+						exit_program = ICP_receiveFile(&message_receive, iluvatarSon.directory, &attr, qfd, &mutex_print);
 					} else {
 						pthread_mutex_lock(&mutex_print);
 						printMsg(COLOR_RED_TXT);
@@ -528,12 +459,7 @@ int main(int argc, char* argv[]) {
 					}
 
 					// reopen command line
-					asprintf(&buffer, CMD_LINE_PROMPT, COLOR_CLI_TXT, CMD_ID_BYTE);
-					pthread_mutex_lock(&mutex_print);
-					printMsg(buffer);
-					pthread_mutex_unlock(&mutex_print);
-					free(buffer);
-					buffer = NULL;
+					openCLI();
 				}
 			}
 
@@ -560,11 +486,6 @@ int main(int argc, char* argv[]) {
 			if (message_receive != NULL) {
 				free(message_receive);
 				message_receive = NULL;
-			}
-			
-			if (mq_type != NULL) {
-				free(mq_type);
-				mq_type = NULL;
 			}
 		}	
 	}

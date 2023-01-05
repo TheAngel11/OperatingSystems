@@ -762,12 +762,12 @@ int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda
 				// free mem
 				freeMemCmd(&command, &n_args);
 				SHAREDFUNCTIONS_freeIluvatarSon(iluvatar);
-				free(user_input);
 				// Free memory and close file descriptors
 				raise(SIGINT);
 				break;
 			default:
 				wait(&status);
+				
 				if (status != 0) {		
 				    // Invalid Linux command
 					printMsg(UNKNOWN_CMD_MSG);

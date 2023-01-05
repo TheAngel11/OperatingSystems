@@ -15,14 +15,16 @@
 *          in/out: data = data to get from frame.
 * @Return: Returns 1.
 ***********************************************************************/
-char GPC_readFrame(int fd, char *type, char **header, char **data) { 			//TODO: Treure prints
+char GPC_readFrame(int fd, char *type, char **header, char **data) {
 	char *buffer = NULL;
 	char byte = 0x07;
 	unsigned short length = 0;
 	int n;
+	
 	n = read(fd, &byte, sizeof(char));
-	if(n == 0) {
-		return 0;
+	
+	if (n == 0) {
+		return (0);
 	}
 
 	switch (byte) {
@@ -48,6 +50,7 @@ char GPC_readFrame(int fd, char *type, char **header, char **data) { 			//TODO: 
 		    *type = byte - '0';
 			break;
 	}
+
 	// skip '['
 	read(fd, &byte, sizeof(char));
 
@@ -78,15 +81,15 @@ char GPC_readFrame(int fd, char *type, char **header, char **data) { 			//TODO: 
 * 		   in: data = data to send.
 * @Return: Returns 1.
 **********************************************************************/
-char GPC_writeFrame(int fd, char type, char *header, char *data, unsigned short length) {			//TODO: Treure prints
+char GPC_writeFrame(int fd, char type, char *header, char *data, unsigned short length) {
 	char *frame = NULL;
  	char byte = 0;
 	char length_lsB = 0, length_msB = 0;
 	int i = 0, j = 0;
 	int size = 0;
 
+	// get frame size
 	size = 1 + ((int) strlen(header)) + 2 + 2 + length;
-
 	frame = (char *) malloc (sizeof(char) * size);
 
 	// write type (1 byte)
@@ -142,20 +145,23 @@ char GPC_writeFrame(int fd, char type, char *header, char *data, unsigned short 
 }
 
 /**********************************************************************
- * @Purpose: Get the MD5SUM of the given file.
- * @Params: in: filename = name of the file to get the MD5SUM.
- * @Return: Returns the MD5SUM of the file.
- **********************************************************************/
+* @Purpose: Get the MD5SUM of the given file.
+* @Params: in: filename = name of the file to get the MD5SUM.
+* @Return: Returns the MD5SUM of the file.
+**********************************************************************/
 char *GPC_getMD5Sum(char *filename) {
 	char *md5sum = NULL;
 	int fd_pipe[2];
 	int status = 0;
 	int pid = 0;
-	if(pipe(fd_pipe) == -1) {
+
+	if (pipe(fd_pipe) == -1) {
 		printMsg("ERROR: The Pipe to check the MD5SUM of the file could not be created\n");
 		return (NULL);
 	}
+
 	pid = fork();
+	
 	if (0 == pid) {
 		close(fd_pipe[0]);
 		dup2(fd_pipe[1], 1);
@@ -398,16 +404,15 @@ char * GPC_createNeighborMessageFileInfo(char *origin_user, char *filename, int 
 }
 
 /**********************************************************************
- * @Purpose: Given a message SEND FILE from one IluvatarSon to another IluvatarSon
- * 			 that are in the same machine, finds the origin user, the filename, the file size and the md5sum.
- * @Params: in/out: message = the message that the origin user sends
- * 		    in/out: origin_user = the user who sends the message
- * 		    in/out: filename = the name of the file that the origin user sends
- * 		    in/out: file_size = the size of the file that the origin user sends
- * 		    in/out: md5sum = the md5sum of the file that the origin user sends
- * @Note: The message is in the format: file&origin_user&filename&file_size&md5sum
- **********************************************************************/
-void GPC_parseCreateNeighborMessageFileInfo(char *message, char **origin_user, char **filename, int *file_size, char **md5sum) {	//TODO: S'hauria de posar en un mòdul a part, ja que és un protocol propi (no el GPC
+* @Purpose: Given a message SEND FILE from one IluvatarSon to another IluvatarSon
+* 			 that are in the same machine, finds the origin user, the filename, the file size and the md5sum.
+* @Params: in/out: message = the message that the origin user sends
+* 		    in/out: origin_user = the user who sends the message
+* 		    in/out: filename = the name of the file that the origin user sends
+* 		    in/out: file_size = the size of the file that the origin user sends
+* 		    in/out: md5sum = the md5sum of the file that the origin user sends
+**********************************************************************/
+void GPC_parseCreateNeighborMessageFileInfo(char *message, char **origin_user, char **filename, int *file_size, char **md5sum) {
 	int i = 0;	
 	char *aux = NULL;
 
