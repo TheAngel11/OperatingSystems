@@ -3,7 +3,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 05/01/2023
+* @Last change: 06/01/2023
 *********************************************************************/
 #define _GNU_SOURCE 1
 #include <stdio.h>
@@ -86,7 +86,7 @@ void disconnectionManager(){
 *********************************************************************/
 void sigintHandler() {
 	// Writing the exit frame
-	if(iluvatarSon.username != NULL) {
+	if (iluvatarSon.username != NULL) {
 		GPC_writeFrame(client.server_fd, 0x06, GPC_EXIT_HEADER, iluvatarSon.username, strlen(iluvatarSon.username));
 	}
 
@@ -246,7 +246,7 @@ int manageUserPrompt() {
 	
 	// execute command
 	if (NULL != iluvatar_command) {
-		is_exit = COMMANDS_executeCommand(iluvatar_command, &iluvatarSon, client.server_fd, &users_list);	//TODO: passar-li el mutex i protegir tots els STDIN de commands.c
+		is_exit = COMMANDS_executeCommand(iluvatar_command, &iluvatarSon, client.server_fd, &users_list, &mutex_print);
 		free(iluvatar_command);
 		iluvatar_command = NULL;
 	}
@@ -257,6 +257,66 @@ int manageUserPrompt() {
 	return (is_exit);
 }
 
+char getLocalFrame(struct mq_attr *attr) {
+	char *frame = NULL;
+	char *type = NULL;
+	char *buffer = NULL;
+
+	// reset command line
+	pthread_mutex_lock(&mutex_print);
+	printMsg(COLOR_DEFAULT_TXT);
+	pthread_mutex_unlock(&mutex_print);
+	// get ICP frame
+	frame = (char *) malloc((attr->mq_msgsize + 1) * sizeof(char));
+		
+	if (mq_receive(qfd, frame, attr->mq_msgsize, NULL) == -1) {
+		pthread_mutex_lock(&mutex_print);
+		printMsg(COLOR_RED_TXT);
+		printMsg(ERROR_RECEIVING_MSG_MSG);
+		printMsg(COLOR_DEFAULT_TXT);
+		pthread_mutex_unlock(&mutex_print);
+		// free memory
+		free(frame);
+		frame = NULL;
+		return (1);
+	} else {
+		buffer = strdup(frame);
+		type = strtok(buffer, "&");
+
+		if (strcmp(type, "msg") == 0) {
+		    // show received message
+			ICP_receiveMsg(frame, &mutex_print);
+		} else if (strcmp(type, "file") == 0) {
+			// save received file
+			if (ICP_READ_FRAME_ERROR == ICP_receiveFile(&frame, iluvatarSon.directory, attr, qfd, &mutex_print)) {
+			    return (1);
+			}
+		} else {
+			pthread_mutex_lock(&mutex_print);
+			printMsg(COLOR_RED_TXT);
+			printMsg("ERROR: Unknown message type\n");
+			printMsg(COLOR_DEFAULT_TXT);
+			pthread_mutex_unlock(&mutex_print);
+		}
+	
+		// reopen command line
+		openCLI();
+	}
+
+	// free memory
+	if (NULL != frame) {
+	    free(frame);
+		frame = NULL;
+	}
+
+	if (NULL != buffer) {
+	    free(buffer);
+		buffer = NULL;
+	}
+
+	return (0);
+}
+
 /*********************************************************************
 * @Purpose: Executes the IluvatarSon process.
 * @Params: in: argc = number of arguments entered
@@ -264,10 +324,6 @@ int manageUserPrompt() {
 * @Return: Returns 0.
 *********************************************************************/
 int main(int argc, char* argv[]) {
-	char *message_receive = NULL;
-	char *mq_type = NULL;
-	char *origin_user = NULL;
-	char *msg = NULL;
 	struct mq_attr attr;
     char *buffer = NULL;
 	int exit_program = 0, read_ok = ILUVATARSON_KO;
@@ -428,39 +484,8 @@ int main(int argc, char* argv[]) {
 				// reads and executes the command, then prepares the prompt for next command
 				exit_program = manageUserPrompt();
 			} else if (FD_ISSET(qfd, &read_fds)) {
-				pthread_mutex_lock(&mutex_print);
-				printMsg(COLOR_DEFAULT_TXT);
-				pthread_mutex_unlock(&mutex_print);
-
-				message_receive = (char *) malloc((attr.mq_msgsize + 1) * sizeof(char));
-				if (mq_receive(qfd, message_receive, attr.mq_msgsize, NULL) == -1) {
-					pthread_mutex_lock(&mutex_print);
-					printMsg(COLOR_RED_TXT);
-					printMsg(ERROR_RECEIVING_MSG_MSG);
-					printMsg(COLOR_DEFAULT_TXT);
-					pthread_mutex_unlock(&mutex_print);
-					exit_program = 1; 
-				} else {
-					buffer = strdup(message_receive);
-					mq_type = strtok(buffer, "&");
-
-					if (strcmp(mq_type, "msg") == 0) {
-						// show received message
-						ICP_receiveMsg(message_receive, &mutex_print);
-					} else if (strcmp(mq_type, "file") == 0) {
-						// save received file
-						exit_program = ICP_receiveFile(&message_receive, iluvatarSon.directory, &attr, qfd, &mutex_print);
-					} else {
-						pthread_mutex_lock(&mutex_print);
-						printMsg(COLOR_RED_TXT);
-						printMsg("ERROR: Unknown message type\n");
-						printMsg(COLOR_DEFAULT_TXT);	
-						pthread_mutex_unlock(&mutex_print);			
-					}
-
-					// reopen command line
-					openCLI();
-				}
+				// received message or file from another Iluvatar in same machine
+				exit_program = getLocalFrame(&attr);
 			}
 
 			if (header != NULL) {
@@ -471,21 +496,6 @@ int main(int argc, char* argv[]) {
 			if (buffer != NULL) {
 				free(buffer);
 				buffer = NULL;
-			}
-
-			if (origin_user != NULL) {
-				free(origin_user);
-				origin_user = NULL;
-			}
-			
-			if (msg != NULL) {
-				free(msg);
-				msg = NULL;
-			}
-
-			if (message_receive != NULL) {
-				free(message_receive);
-				message_receive = NULL;
 			}
 		}	
 	}

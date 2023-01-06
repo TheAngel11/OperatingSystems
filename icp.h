@@ -9,13 +9,16 @@
 #include <mqueue.h>
 #include <sys/wait.h>
 
+#include "definitions.h"
 #include "sharedFunctions.h"
 
-#define ICP_DATA_SEPARATOR				'&'
-#define ICP_FILE_MAX_BYTES			    512
-#define ICP_READ_FRAME_ERROR			0
-#define ICP_READ_FRAME_NO_ERROR			1
-#define MSG_NEIGHBOURS_RECEIVED_MSG     "\nNew message received!\nYour neighbor %s says:\n%s\n"
+#define ICP_DATA_SEPARATOR		 '&'
+#define ICP_FILE_MAX_BYTES		 512
+#define ICP_READ_FRAME_ERROR	 0
+#define ICP_READ_FRAME_NO_ERROR	 1
+/* Messages */
+#define ICP_MSG_RECEIVED_MSG     "\nNew message received!\nYour neighbor %s says:\n%s\n"
+#define ICP_FILE_RECEIVED_MSG    "\nNew file received!\nYour neighbor %s has sent:\n%s\n"
 
 /**********************************************************************
 * @Purpose: Receives a message from another process in the same machine

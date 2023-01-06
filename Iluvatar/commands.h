@@ -10,12 +10,14 @@
 #include <string.h>
 #include <sys/wait.h>
 #include <mqueue.h>
+#include <pthread.h>
 
 #include "../definitions.h"
 #include "../sharedFunctions.h"
 #include "../bidirectionallist.h"
 #include "../gpc.h"
 #include "../server.h"
+#include "../client.h"
 
 /* CUSTOM COMMANDS */
 #define UPDATE_USERS_CMD		"UPDATE USERS\0"
@@ -60,7 +62,7 @@
 *		   in: fd_arda = Arda's file descriptor (connected to server)
 * @Return: 0 if EXIT command entered, otherwise 1.
 *********************************************************************/
-int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda, BidirectionalList *users_list);
+int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda, BidirectionalList *users_list, pthread_mutex_t *mutex);
 
 /*********************************************************************
 * @Purpose: Gets a list of users given a string containing the users and their data.

@@ -30,7 +30,7 @@ void ICP_receiveMsg(char *frame, pthread_mutex_t *mutex) {
 	origin_user = SHAREDFUNCTIONS_splitString(frame, ICP_DATA_SEPARATOR, &i);
 	msg = SHAREDFUNCTIONS_splitString(frame, ICP_DATA_SEPARATOR, &i);
 	// show information
-	asprintf(&buffer, MSG_NEIGHBOURS_RECEIVED_MSG, origin_user, msg);
+	asprintf(&buffer, ICP_MSG_RECEIVED_MSG, origin_user, msg);
 	pthread_mutex_lock(mutex);
 	printMsg(buffer);
 	pthread_mutex_unlock(mutex);
@@ -44,30 +44,30 @@ void ICP_receiveMsg(char *frame, pthread_mutex_t *mutex) {
 }
 
 /**********************************************************************
-* @Purpose: Given a message SEND FILE from one IluvatarSon to another IluvatarSon
-* 			 that are in the same machine, finds the origin user, the filename, the file size and the md5sum.
-* @Params: in/out: message = the message that the origin user sends
-* 		    in/out: origin_user = the user who sends the message
-* 		    in/out: filename = the name of the file that the origin user sends
-* 		    in/out: file_size = the size of the file that the origin user sends
-* 		    in/out: md5sum = the md5sum of the file that the origin user sends
+* @Purpose: Parses the frame containing the initial data of a received
+*           file by a user in the same machine following the ICP.
+* @Params: in: frame = ICP frame with the initial data
+* 		   in/out: origin_user = string to store the name of the sender
+* 		   in/out: filename = string to store the name of the file
+* 		   in/out: file_size = total size of the file in bytes
+* 		   in/out: md5sum = string to store the checksum of the file
 **********************************************************************/
-void parseCreateNeighborMessageFileInfo(char *message, char **origin_user, char **filename, int *file_size, char **md5sum) {
+void parseInitialSendFileFrame(char *frame, char **origin_user, char **filename, int *file_size, char **md5sum) {
 	int i = 0;	
 	char *aux = NULL;
 
 	// first we get rid of the "file" part
-	aux = SHAREDFUNCTIONS_splitString(message, ICP_DATA_SEPARATOR, &i);
+	aux = SHAREDFUNCTIONS_splitString(frame, ICP_DATA_SEPARATOR, &i);
 	free(aux);
 	aux = NULL;
 	// get information about user and file
-	*origin_user = SHAREDFUNCTIONS_splitString(message, ICP_DATA_SEPARATOR, &i);
-	*filename = SHAREDFUNCTIONS_splitString(message, ICP_DATA_SEPARATOR, &i);
-	aux = SHAREDFUNCTIONS_splitString(message, ICP_DATA_SEPARATOR, &i);
+	*origin_user = SHAREDFUNCTIONS_splitString(frame, ICP_DATA_SEPARATOR, &i);
+	*filename = SHAREDFUNCTIONS_splitString(frame, ICP_DATA_SEPARATOR, &i);
+	aux = SHAREDFUNCTIONS_splitString(frame, ICP_DATA_SEPARATOR, &i);
 	*file_size = atoi(aux);
 	free(aux);
 	aux = NULL;
-	*md5sum = SHAREDFUNCTIONS_splitString(message, ICP_DATA_SEPARATOR, &i);
+	*md5sum = SHAREDFUNCTIONS_splitString(frame, ICP_DATA_SEPARATOR, &i);
 }
 
 /**********************************************************************
@@ -102,6 +102,7 @@ char readFileFrame(int file_fd, int qfd, char **frame, int msg_size, int file_si
 		*frame = NULL;
 		return (ICP_READ_FRAME_ERROR);
 	} else {
+		// copy file
 		if (*frame != NULL) {
 			write(file_fd, *frame, file_size);
 		}
@@ -112,8 +113,78 @@ char readFileFrame(int file_fd, int qfd, char **frame, int msg_size, int file_si
 	return (ICP_READ_FRAME_NO_ERROR);
 }
 
-char ICP_receiveFile(char **frame, char *directory, struct mq_attr *attr, int qfd, pthread_mutex_t *mutex) {
+/**********************************************************************
+* @Purpose: Checks that the MD5SUM of the copied file and the received
+*           one match.
+* @Params: in/out: path = string containing the path of the copied file
+*          in/out: filename = string containing the name of the
+*		           received file
+*		   in/out: md5sum = string with the MD5SUM of the received file
+*		   in/out: user = string containing the name of the sender
+*		   in/out mutex = screen mutex to prevent writing on screen
+*		          simultaneously
+* @Return: Returns FILE_MD5SUM_OK if the checksums match, otherwise
+*          FILE_MD5SUM_KO.
+**********************************************************************/
+char checkMD5Sum(char **path, char **filename, char **md5sum, char **user, pthread_mutex_t *mutex) {
 	char *buffer = NULL;
+
+	// get current file MD5SUM
+	buffer = SHAREDFUNCTIONS_getMD5Sum(*path);
+	free(*path);
+	*path = NULL;
+
+	// compare with original MD5SUM
+	if (strcmp(buffer, *md5sum) == 0) {
+		free(buffer);
+		buffer = NULL;
+		asprintf(&buffer, ICP_FILE_RECEIVED_MSG, *user, *filename);
+		pthread_mutex_lock(mutex);
+		printMsg(buffer);
+		pthread_mutex_unlock(mutex);
+		// free memory
+		free(buffer);
+		buffer = NULL;
+		free(*filename);
+		*filename = NULL;
+		free(*user);
+		*user = NULL;
+		free(*md5sum);
+		*md5sum = NULL;
+		return (FILE_MD5SUM_OK);
+	}
+
+	// mismatch in MD5SUM
+	// free memory
+	free(buffer);
+	buffer = NULL;
+	free(*filename);
+	*filename = NULL;
+	free(*user);
+	*user = NULL;
+	free(*md5sum);
+	*md5sum = NULL;
+	return (FILE_MD5SUM_KO);
+}
+
+/**********************************************************************
+* @Purpose: Gets the file sent by another user in the same machine and
+*           checks it. If there are no errors, copies the file into the
+*           given directory.
+* @Params: in/out: frame = string containing the initial data to get a
+*                  file. This data is formed by the user sending the
+*				   file, the name of the file, the total size of the
+*				   file and the checksum of the file
+*          in: directory = string containing the name of the directory
+*		       in which to copy the file
+*		   in/out: attr = attributes of the message queue
+*		   in: qfd = file descriptor of the message queue
+*		   in/out mutex = screen mutex to prevent writing on screen
+*		          simultaneously
+* @Return: Returns ICP_READ_FRAME_NO_ERROR if the file was received
+*          correctly, otherwise ICP_READ_FRAME_ERROR.
+**********************************************************************/
+char ICP_receiveFile(char **frame, char *directory, struct mq_attr *attr, int qfd, pthread_mutex_t *mutex) {
 	char *origin_user = NULL;
 	char *filename = NULL;
 	char *filename_path = NULL;
@@ -121,7 +192,7 @@ char ICP_receiveFile(char **frame, char *directory, struct mq_attr *attr, int qf
 	int file_size = 0;
 	int file_fd = -1;
 
-	parseCreateNeighborMessageFileInfo(*frame, &origin_user, &filename, &file_size, &md5sum);
+	parseInitialSendFileFrame(*frame, &origin_user, &filename, &file_size, &md5sum);
 	free(*frame);
 	*frame = NULL;
 	asprintf(&filename_path, ".%s/%s", directory, filename);
@@ -130,7 +201,7 @@ char ICP_receiveFile(char **frame, char *directory, struct mq_attr *attr, int qf
 	while (file_size > ICP_FILE_MAX_BYTES) {
 		// Read the message
 		if (ICP_READ_FRAME_ERROR == readFileFrame(file_fd, qfd, frame, attr->mq_msgsize, ICP_FILE_MAX_BYTES, mutex)) {
-		    return (1);
+		    return (ICP_READ_FRAME_ERROR);
 		}
 
 		file_size -= ICP_FILE_MAX_BYTES;
@@ -138,35 +209,16 @@ char ICP_receiveFile(char **frame, char *directory, struct mq_attr *attr, int qf
 
 	// Read the last message
 	if (ICP_READ_FRAME_ERROR == readFileFrame(file_fd, qfd, frame, attr->mq_msgsize, file_size, mutex)) {
-	    return (1);
+	    return (ICP_READ_FRAME_ERROR);
 	}
 	
 	close(file_fd);
 	// check md5sum
-	buffer = SHAREDFUNCTIONS_getMD5Sum(filename_path);
-	free(filename_path);
-	filename_path = NULL;
-
-	if (strcmp(buffer, md5sum) == 0) {
-		// md5sum_verification = "FILE_OK";
-		free(buffer);
-		buffer = NULL;
-		asprintf(&buffer, FILE_NEIGHBOURS_RECIEVED_MSG, origin_user, filename);
-		pthread_mutex_lock(mutex);
-		printMsg(buffer);
-		pthread_mutex_unlock(mutex);
-		free(buffer);
-		buffer = NULL;
+	if (FILE_MD5SUM_OK == checkMD5Sum(&filename_path, &filename, &md5sum, &origin_user, mutex)) {
+	    // send reply of success
+	} else {
+	    // send reply of failure
 	}
-
-	// free memory
-	free(filename);
-	filename = NULL;
-	free(origin_user);
-	origin_user = NULL;
-	free(md5sum);
-	md5sum = NULL;
-
 	//Sending a message to the origin user saying the md5sum verification result
 	//TODO: s'ha de crear un semàfor de sincronització per a que aquest missatge el rebi el que ha enviat el fitxer a commands.c, i no aquest, que l'ha rebut (ja que si descomento això i la rebuda a commands.c, el select d'aquí rep el missatge que he enviat aquí i no s'envia a qui li vull enviar)
 	/*if(mq_send(qfd, md5sum_verification, strlen(md5sum_verification) + 1,  0) == -1) {
@@ -178,5 +230,5 @@ char ICP_receiveFile(char **frame, char *directory, struct mq_attr *attr, int qf
 		exit_program = 1; 
 	}*/
 
-	return (0);
+	return (ICP_READ_FRAME_NO_ERROR);
 }
