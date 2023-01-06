@@ -168,12 +168,11 @@ char * getHostnameByIP(char *ip_address) {
 	char *hostname = NULL;
 	struct in_addr ip;
 	struct hostent *host;
+
 	inet_aton(ip_address, &ip);
 	host = gethostbyaddr(&ip, sizeof(ip), AF_INET);
-
-	// We reserve memory for the hostname
+	// copy hostname
 	hostname = (char *) malloc(strlen(host->h_name) + 1);
-	// We copy the hostname to the reserved memory
 	strcpy(hostname, host->h_name);
 	return (hostname);
 }
@@ -278,33 +277,45 @@ void printUsersList(BidirectionalList users, pthread_mutex_t *mutex) {
 }
 
 /*********************************************************************
- * @Purpose: Finds a user in a list of users.
- * @Params: in: users = list of users.
- * 			in: username = username of the user to find.
- * @Return: Returns the user if found, otherwise returns an empty user.
- *********************************************************************/
-Element findUserByList(BidirectionalList users, char *username) {
-	Element user;
-
+* @Purpose: Searches a user in a list of users.
+* @Params: in: users = list of users
+* 		   in: username = username of the user to find
+* @Return: Returns USER_FOUND if user is found, otherwise
+*          USER_NOT_FOUND.
+*********************************************************************/
+char searchUserInList(BidirectionalList users, char *username, Element *user) {
 	if (!BIDIRECTIONALLIST_isEmpty(users)) {
 	    BIDIRECTIONALLIST_goToHead(&users);
 
 		while (BIDIRECTIONALLIST_isValid(users)) {
-	        user = BIDIRECTIONALLIST_get(&users);
+	        *user = BIDIRECTIONALLIST_get(&users);
 
-			if (0 == strcasecmp(user.username, username)) {
-				return (user);
+			// check user
+			if (0 == strcasecmp(user->username, username)) {
+				return (USER_FOUND);
 			}
 
-			free(user.username);
-			free(user.ip_network);
-			user.username = NULL;
-			user.ip_network = NULL;
+			// next user
+			free(user->username);
+			user->username = NULL;
+			free(user->ip_network);
+			user->ip_network = NULL;
 			BIDIRECTIONALLIST_next(&users);
 		}
 	}
 	
-	return (user);
+	// free memory
+	if (NULL != user->username) {
+	    free(user->username);
+		user->username = NULL;
+	}
+
+	if (NULL != user->ip_network) {
+	    free(user->ip_network);
+		user->ip_network = NULL;
+	}
+
+	return (USER_NOT_FOUND);
 }
 
 /*********************************************************************
@@ -316,13 +327,13 @@ Element findUserByList(BidirectionalList users, char *username) {
 *                  simultaneously
 * @Return: Returns 0 if the message was sent successfully, otherwise returns 1 or -1.
 *********************************************************************/
-char socketsSendMsg(IluvatarSon iluvatar, Element e, char *msg, pthread_mutex_t *mutex) {
+char socketsSendMsg(char *sender, Element e, char *msg, pthread_mutex_t *mutex) {
 	Client client;
 	char *data = NULL;
 	char *header = NULL;
 	char type = 0x07;
 
-	data = GPC_sendMessage(iluvatar.username, msg);
+	data = GPC_sendMessage(sender, msg);
 	
 	if (data != NULL) {
 		// Open socket
@@ -653,6 +664,116 @@ char mqSendFile(mqd_t qfd, char *filename, IluvatarSon iluvatar, pthread_mutex_t
 }
 
 /*********************************************************************
+* @Purpose: Checks whether user is in the same machine as origin user.
+* @Params: in: origin_ip = string containing the IP of the origin user
+*          in: destination_ip = string containing the IP of the
+*              destination user
+* @Return: Returns IS_REMOTE_USER if users are in different machines,
+*          otherwise IS_LOCAL_USER.
+*********************************************************************/
+char checkUserIP(char *origin_ip, char *destination_ip) {
+    char *origin_hostname = NULL;
+	char *dest_hostname = NULL;
+
+	origin_hostname = getHostnameByIP(origin_ip);
+	dest_hostname = getHostnameByIP(destination_ip);
+	
+	if (0 == strcmp(origin_hostname, dest_hostname)) {
+	    free(origin_hostname);
+		origin_hostname = NULL;
+		free(dest_hostname);
+		dest_hostname = NULL;
+		return (IS_LOCAL_USER);
+	}
+
+	free(origin_hostname);
+	origin_hostname = NULL;
+	free(dest_hostname);
+	dest_hostname = NULL;
+	return (IS_REMOTE_USER);
+}
+
+void sendMsgCommand(BidirectionalList clients, char *dest_username, char *message, char *origin_username, char *origin_ip, pthread_mutex_t *mutex) {
+	Element e;
+	mqd_t qfd;
+	char *buffer = NULL;
+
+	// search destination user
+	if (USER_FOUND == searchUserInList(clients, dest_username, &e)) {
+		// check if remote user
+		if (IS_REMOTE_USER == checkUserIP(origin_ip, e.ip_network)) {
+		    // send message
+			if (0 != socketsSendMsg(origin_username, e, message, mutex)) {
+				// free memory
+				free(e.username);
+				e.username = NULL;
+				free(e.ip_network);
+				e.ip_network = NULL;
+			    return;
+			}
+					
+			// free memory
+			free(e.username);
+			e.username = NULL;
+			free(e.ip_network);
+			e.ip_network = NULL;
+		} else {
+	        // check destination user is not origin user
+			if (0 == strcmp(origin_username, e.username)) {
+		        pthread_mutex_lock(mutex);
+				printMsg(COLOR_RED_TXT);
+				printMsg(SEND_MSG_ERROR_SAME_USER);
+				printMsg(COLOR_DEFAULT_TXT);
+				pthread_mutex_unlock(mutex);
+				// free memory
+				free(e.username);
+				e.username = NULL;
+				free(e.ip_network);
+				e.ip_network = NULL;
+				return;
+			}
+
+			// free memory
+			free(e.username);
+			e.username = NULL;
+			free(e.ip_network);
+			e.ip_network = NULL;
+			// open queue
+			asprintf(&buffer, "/%d", e.pid);
+			qfd = mq_open(buffer, O_RDWR);
+			free(buffer);
+			buffer = NULL;
+			buffer = GPC_createNeighborMessageMsg(origin_username, message);
+
+			// send message
+			if (mq_send(qfd, buffer, strlen(buffer) + 1, 0) == -1) {
+				printMsg(COLOR_RED_TXT);
+				printMsg("ERROR: The message could not be sent\n");
+				printMsg(COLOR_DEFAULT_TXT);
+			} else {
+				printMsg("Message correctly sent\n"); 
+			}
+					
+			free(buffer);
+			buffer = NULL;
+			mq_close(qfd);
+		}
+		// send frame to count new message
+	} else {
+	    // show error message for unfound user
+		asprintf(&buffer, USER_NOT_FOUND_ERROR_MSG, dest_username);
+		pthread_mutex_lock(mutex);
+		printMsg(COLOR_RED_TXT);
+		printMsg(buffer);
+		printMsg(COLOR_DEFAULT_TXT);
+		pthread_mutex_unlock(mutex);
+		// free memory
+		free(buffer);
+		buffer = NULL;
+	}
+}
+
+/*********************************************************************
 * @Purpose: Executes a custom command given its ID. Currently only
 *           prints the selected command.
 * @Params: in: id = ID of the custom command to execute
@@ -663,14 +784,7 @@ char mqSendFile(mqd_t qfd, char *filename, IluvatarSon iluvatar, pthread_mutex_t
 * @Return: ----
 *********************************************************************/
 char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, BidirectionalList *clients, char **command, pthread_mutex_t *mutex) {
-    char *buffer = NULL;
-	char *message_send = NULL;
 	char *header = NULL;
-	mqd_t qfd;
-	char returnCode = 0;
-	Element e;
-	char *destHostname = NULL;
-	char *originHostname = NULL;
 
 	switch (id) {
 	    case IS_UPDATE_USERS_CMD:
@@ -684,10 +798,11 @@ char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 			printUsersList(*clients, mutex);
 			break;
 		case IS_SEND_MSG_CMD:
-		    // send frame to count new message
+		    sendMsgCommand(*clients, command[2], command[3], iluvatar.username, iluvatar.ip_address, mutex);
+			break;
 		case IS_SEND_FILE_CMD:
 			// Find the user
-			e = findUserByList(*clients, command[2]);
+			/*e = findUserByList(*clients, command[2]);
 			if (e.username != NULL && e.ip_network != NULL) {
 				if (strchr(command[3], '.') != NULL || id == IS_SEND_MSG_CMD) {
 					// We get the hostnames to compare them
@@ -762,7 +877,7 @@ char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 				printMsg(COLOR_RED_TXT);
 				printMsg("ERROR: User not found\n");
 				printMsg(COLOR_DEFAULT_TXT);
-			}
+			}*/
 
 			break;
 		default:

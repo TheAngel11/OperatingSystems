@@ -38,6 +38,8 @@
 #define UPDATE_USERS_SUCCESS_MSG	"Users list updated\n"
 #define LIST_USERS_N_USERS_MSG 		"There are %d children of Iluvatar connected:\n"
 #define EXIT_ARDA_MSG				"\nDisconnecting from Arda. See you soon, son of Iluvatar\n\n"
+#define SEND_MSG_ERROR_SAME_USER	"ERROR: You cannot send a message to yourself\n"
+#define USER_NOT_FOUND_ERROR_MSG	"ERROR: %s was not found. Try updating the list of users\n"
 
 /* Number of required args for custom command */
 #define UPDATE_USERS_N_ARGS		2
@@ -54,6 +56,12 @@
 #define IS_EXIT_CMD				5
 #define IS_NOT_CUSTOM_CMD		0
 #define ERROR_CMD_ARGS			-1
+
+/* Other constants */
+#define USER_FOUND				1
+#define USER_NOT_FOUND			0
+#define IS_REMOTE_USER			1
+#define IS_LOCAL_USER			0
 
 /*********************************************************************
 * @Purpose: Executes the command entered by the user.
