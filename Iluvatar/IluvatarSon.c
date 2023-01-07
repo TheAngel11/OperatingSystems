@@ -257,6 +257,12 @@ int manageUserPrompt() {
 	return (is_exit);
 }
 
+/*********************************************************************
+* @Purpose: Gets an ICP frame sent between IluvatarSons in the same
+*           machine.
+* @Params: in/out: attr = attributes of the message queue
+* @Return: Returns 0 if no errors occurred, otherwise 1.
+*********************************************************************/
 char getLocalFrame(struct mq_attr *attr) {
 	char *frame = NULL;
 	char *type = NULL;

@@ -69,26 +69,6 @@ void GPC_parseUserFromFrame(char *data, Element *e);
 char GPC_updateUsersList(BidirectionalList *list, char *users);
 
 /**********************************************************************
-* @Purpose: Given the origin user, the filename, the file size and the
-*           MD5SUM, creates the data field of a send file frame.
-* @Params: in/out: originUser = the user who sends the file
-*	.	   in/out: filename = the name of the file that the origin user sends
-*	.	   in/out: fileSize = the size of the file that the origin user sends
-*	.	   in/out: md5sum = the MD5SUM of the file that the origin user sends
-* @Return: Returns data of the frame or NULL if there is no data.
-**********************************************************************/
-char * GPC_sendFile(char *origin_user, char *filename, int fileSize, char *md5sum);
-
-/**********************************************************************
-* @Purpose: Given the origin user and the message, creates the data field 
-*			of a send message frame.
-* @Params: in/out: originUser = the user who sends the message
-*	.	   in/out: message = the message that the origin user sends
-* @Return: Returns 1.
-**********************************************************************/
-char * GPC_sendMessage(char *originUser, char *message); 
-
-/**********************************************************************
  * @Purpose: Given the data of a send file frame, finds the origin user, the filename,
  * 		 	 the file size and the MD5SUM
  * @Params: in/out: data = the data of a send file frame
@@ -115,41 +95,5 @@ void GPC_parseSendMessage(char *data, char **originUser, char **message);
 * @Return: Returns a string containing the data in GPC format.
 **********************************************************************/
 char * GPC_getUsersFromList(BidirectionalList blist);
-
-/**********************************************************************
- * @Purpose: Creates a messaage from one IluvatarSon to another IluvatarSon
- * 			 that are in the same machine.
- * @Params: in: origin_user = the user who sends the message
- * 		   in: msg = the message that the origin user sends
- * @Return: Returns a string containing the message in our new format.
- * 		    Returns NULL if the message is empty.
- * @Note: The message is in the format: msg&origin_user&message
- **********************************************************************/
-char * GPC_createNeighborMessageMsg(char *origin_user, char *msg);
-
-/**********************************************************************
- * @Purpose: Creates a message for SEND FILE from one IluvatarSon to another IluvatarSon
- * 			 that are in the same machine.
- * @Params: in: origin_user = the user who sends the message
- * 		   in: filename = the name of the file that the origin user sends
- * 		   in: file_size = the size of the file that the origin user sends
- * 		   in: md5sum = the md5sum of the file that the origin user sends
- * @Return: Returns a string containing the message in our new format.
- * 		    Returns NULL if the message is empty.
- * @Note: The message is in the format: file&origin_user&filename&file_size&md5sum
- **********************************************************************/
-char * GPC_createNeighborMessageFileInfo(char *origin_user, char *filename, int file_size, char *md5sum);
-
-/**********************************************************************
- * @Purpose: Given a message SEND FILE from one IluvatarSon to another IluvatarSon
- * 			 that are in the same machine, finds the origin user, the filename, the file size and the md5sum.
- * @Params: in/out: message = the message that the origin user sends
- * 		    in/out: origin_user = the user who sends the message
- * 		    in/out: filename = the name of the file that the origin user sends
- * 		    in/out: file_size = the size of the file that the origin user sends
- * 		    in/out: md5sum = the md5sum of the file that the origin user sends
- * @Note: The message is in the format: file&origin_user&filename&file_size&md5sum
- **********************************************************************/
-void GPC_parseCreateNeighborMessageFileInfo(char *message, char **origin_user, char **filename, int *file_size, char **md5sum);
 
 #endif

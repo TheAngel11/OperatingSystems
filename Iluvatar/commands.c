@@ -333,8 +333,16 @@ char socketsSendMsg(char *sender, Element e, char *msg, pthread_mutex_t *mutex) 
 	char *header = NULL;
 	char type = 0x07;
 
-	data = GPC_sendMessage(sender, msg);
-	
+	// check message is not empty
+	if (strlen(msg) > 2) {
+	    // remove message delimiters (")
+		msg = msg + 1;
+		msg[strlen(msg) - 1] = '\0';
+		// prepare data to send
+		data = (char *) malloc (sizeof(char) * (strlen(sender) + strlen(msg) + 2));
+		sprintf(data, "%s%c%s", sender, GPC_DATA_SEPARATOR, msg);
+	}
+
 	if (data != NULL) {
 		// Open socket
 		client = CLIENT_init(e.ip_network, e.port);
@@ -433,7 +441,7 @@ char socketsSendFile(char *username, Element e, char *filename, char *directory,
 	// get MD5SUM
 	md5sum = SHAREDFUNCTIONS_getMD5Sum(filename_path);
 	// Prepare the data to send
-	data = GPC_sendFile(username, filename, file_size, md5sum);
+	asprintf(&data, "%s%c%s%c%d%c%s", username, GPC_DATA_SEPARATOR, filename, GPC_DATA_SEPARATOR, file_size, GPC_DATA_SEPARATOR, md5sum);
 	free(md5sum);
 	md5sum = NULL;
 	free(filename_path);
@@ -559,7 +567,7 @@ char mqSendFile(mqd_t qfd, char *filename, char *directory, char *username, pthr
 	// Get the MD5SUM
 	md5sum = SHAREDFUNCTIONS_getMD5Sum(filename_path);
 	// Prepare the message to send
-	message_send = GPC_createNeighborMessageFileInfo(username, filename, file_size, md5sum);
+	asprintf(&message_send, "file%c%s%c%s%c%d%c%s", ICP_DATA_SEPARATOR, username, ICP_DATA_SEPARATOR, filename, ICP_DATA_SEPARATOR, file_size, ICP_DATA_SEPARATOR, md5sum);
 	free(filename_path);
 	filename_path = NULL;
 	free(md5sum);
@@ -579,11 +587,11 @@ char mqSendFile(mqd_t qfd, char *filename, char *directory, char *username, pthr
 	message_send = NULL;
 
 	// Send the file in fragments if bigger than ICP_FILE_MAX_BYTES
-	while (file_size > GPC_FILE_MAX_BYTES) {
-		message_send = (char *) malloc(sizeof(char)  * GPC_FILE_MAX_BYTES);
-		read(fd_file, message_send, GPC_FILE_MAX_BYTES);
+	while (file_size > ICP_FILE_MAX_BYTES) {
+		message_send = (char *) malloc(sizeof(char)  * ICP_FILE_MAX_BYTES);
+		read(fd_file, message_send, ICP_FILE_MAX_BYTES);
 		
-		if (mq_send(qfd, message_send, GPC_FILE_MAX_BYTES, 0) == -1) {
+		if (mq_send(qfd, message_send, ICP_FILE_MAX_BYTES, 0) == -1) {
 		    pthread_mutex_lock(mutex);
 			printMsg(COLOR_RED_TXT);
 			printMsg("ERROR: The message could not be sent\n");
@@ -596,7 +604,7 @@ char mqSendFile(mqd_t qfd, char *filename, char *directory, char *username, pthr
 		
 		free(message_send);
 		message_send = NULL;
-		file_size -= GPC_FILE_MAX_BYTES;
+		file_size -= ICP_FILE_MAX_BYTES;
 	}
 	
 	// Send the last part of the file
@@ -758,7 +766,11 @@ void sendMsgCommand(BidirectionalList clients, char *dest_username, char *messag
 			qfd = mq_open(buffer, O_RDWR);
 			free(buffer);
 			buffer = NULL;
-			buffer = GPC_createNeighborMessageMsg(origin_username, message);
+			
+			// prepare data for frame
+			if (strlen(message) > 2) {
+			    asprintf(&buffer, "msg%c%s%c%s", ICP_DATA_SEPARATOR, origin_username, ICP_DATA_SEPARATOR, message);
+			}
 
 			// send message
 			if (mq_send(qfd, buffer, strlen(buffer) + 1, 0) == -1) {
@@ -773,8 +785,11 @@ void sendMsgCommand(BidirectionalList clients, char *dest_username, char *messag
 				pthread_mutex_unlock(mutex);
 			}
 					
-			free(buffer);
-			buffer = NULL;
+			if (NULL != buffer) {
+			    free(buffer);
+				buffer = NULL;
+			}
+
 			mq_close(qfd);
 		}
 		// send frame to count new message

@@ -16,6 +16,7 @@
 #include "../sharedFunctions.h"
 #include "../bidirectionallist.h"
 #include "../gpc.h"
+#include "../icp.h"
 #include "../server.h"
 #include "../client.h"
 
