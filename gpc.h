@@ -50,13 +50,6 @@ char GPC_readFrame(int fd, char *type, char **header, char **data);
 char GPC_writeFrame(int fd, char type, char *header, char *data, unsigned short length);
 
 /**********************************************************************
- * @Purpose: Get the MD5SUM of the given file.
- * @Params: in: filename = name of the file to get the MD5SUM.
- * @Return: Returns the MD5SUM of the file.
- **********************************************************************/
-char *GPC_getMD5Sum(char *filename);
-
-/**********************************************************************
 * @Purpose: Given the data of a frame containing the attributes of a
 *           user, parses the user and stores it in list element.
 * @Params: in: data = data containing the name, IP, port and PID of the

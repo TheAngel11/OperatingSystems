@@ -4,7 +4,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 10/12/2022
-* @Last change: 03/01/2023
+* @Last change: 07/01/2023
 *********************************************************************/
 #include "server.h"
 
@@ -338,11 +338,12 @@ void *iluvatarClient(void *args) {
 	int received_OK = 1;
 	int client_fd = s->server->client_fd;
 	char *client_ip = s->server->client_ip;			//TODO: no es reserva memoria ni per aquesta variable ni per la creada per la funcio de getClientIP, s'hauria de fer
+	
 	pthread_mutex_unlock(&s->server->client_fd_mutex);
-
+	// get frame
 	GPC_readFrame(client_fd, &type, &header, &data);
 	pthread_mutex_lock(s->server->mutex_print);
-	// Print the default color	
+	// reset command line
 	printMsg(COLOR_DEFAULT_TXT);
 	pthread_mutex_unlock(s->server->mutex_print);
 
@@ -353,13 +354,14 @@ void *iluvatarClient(void *args) {
 			GPC_parseSendMessage(data, &origin_user, &message);
 			
 			// Reply message petition	
-			if(data != NULL && strcmp(GPC_SEND_MSG_HEADER_IN, header) == 0 && s->server->clients.error == LIST_NO_ERROR) {
+			if (data != NULL && strcmp(GPC_SEND_MSG_HEADER_IN, header) == 0 && s->server->clients.error == LIST_NO_ERROR) {
 				// Print the message
 				asprintf(&buffer, MSG_RECIEVED_MSG, origin_user, client_ip, message);	//TODO: hauria de mostrar-se el missatge abans de saber si el missatge està bé? 
 				pthread_mutex_lock(s->server->mutex_print);
 				printMsg(buffer);
 				pthread_mutex_unlock(s->server->mutex_print);
 				free(buffer);
+				buffer = NULL;
 				// Send the OK frame
 				GPC_writeFrame(client_fd, 0x03, GPC_HEADER_MSGOK, NULL, 0);
 			} else {
@@ -369,18 +371,21 @@ void *iluvatarClient(void *args) {
 			}
 			
 
-			if(origin_user != NULL) {
+			if (origin_user != NULL) {
 				free(origin_user);
 				origin_user = NULL;
 			}
-			if(data != NULL) {
+
+			if (data != NULL) {
 				free(data);
 				data = NULL;
 			}
-			if(message != NULL) {
+
+			if (message != NULL) {
 				free(message);
 				message = NULL;
-			}	
+			}
+
 			break;
 
 		// Send file petition
@@ -389,47 +394,68 @@ void *iluvatarClient(void *args) {
 			GPC_parseSendFileInfo(data, &origin_user, &filename, &file_size, &md5sum);
 			free(data);
 			data = NULL;
-			
+			// create file to copy received file
 			asprintf(&filename_path, ".%s/%s", s->iluvatar->directory, filename);
-
 			file_fd = open(filename_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-			while(file_size > GPC_FILE_MAX_BYTES) {
+			
+			while (file_size > GPC_FILE_MAX_BYTES) {
 				// Read the frame
+				free(header);
+				header = NULL;
 				GPC_readFrame(client_fd, &type, &header, &data);
 
-				if(data != NULL && strcmp(GPC_SEND_FILE_DATA_HEADER_IN, header) == 0 && type == 0x04) {
+				if (data != NULL && strcmp(GPC_SEND_FILE_DATA_HEADER_IN, header) == 0 && type == 0x04) {
 					write(file_fd, data, GPC_FILE_MAX_BYTES);
-					free(data);
-					data = NULL;
-					free(header);
-					header = NULL;
 				}
 
+				// free memory
+				if (data != NULL) {
+				    free(data);
+					data = NULL;
+				}
+
+				free(header);
+				header = NULL;
+				// next fragment
 				file_size -= GPC_FILE_MAX_BYTES;
 			}
 
 			// Read the last frame
+			free(header);
+			header = NULL;
 			GPC_readFrame(client_fd, &type, &header, &data);
-			if(data != NULL && strcmp(GPC_SEND_FILE_DATA_HEADER_IN, header) == 0 && type == 0x04) {
+			
+			if (data != NULL && strcmp(GPC_SEND_FILE_DATA_HEADER_IN, header) == 0 && type == 0x04) {
 				// Write into the file
 				write(file_fd, data, file_size);	//TODO: s'hauria de fer un mutex per si hi ha dos clients que envien un fitxer al mateix temps?
-				free(data);
-				data = NULL;
-				free(header);
-				header = NULL;
 			}
+			
+			// free memory
+			if (data != NULL) {
+			    free(data);
+				data = NULL;
+			}
+
+			free(header);
+			header = NULL;
+
 			close(file_fd);
 
 			// check the md5sum
-			buffer = GPC_getMD5Sum(filename_path);
+			buffer = SHAREDFUNCTIONS_getMD5Sum(filename_path);
 			free(filename_path);
-			if(strcmp(buffer, md5sum) == 0) {
+			filename_path = NULL;
+			
+			if (strcmp(buffer, md5sum) == 0) {
+				free(buffer);
+				buffer = NULL;
 				// Print the message
 				asprintf(&buffer, FILE_RECIEVED_MSG, origin_user, client_ip, filename);	//TODO: hauria de mostrar-se el missatge abans de saber si el missatge està bé? 
 				pthread_mutex_lock(s->server->mutex_print);
 				printMsg(buffer);
 				pthread_mutex_unlock(s->server->mutex_print);
 				free(buffer);
+				buffer = NULL;
 				// Send OK frame
 				GPC_writeFrame(client_fd, 0x05, GPC_SEND_FILE_HEADER_OK_OUT, NULL, 0);
 			} else {
@@ -437,6 +463,16 @@ void *iluvatarClient(void *args) {
 				GPC_writeFrame(client_fd, 0x05, GPC_SEND_FILE_HEADER_KO_OUT, NULL, 0);
 				received_OK = 0;
 			}
+			
+			// free memory
+			free(buffer);
+			buffer = NULL;
+			free(md5sum);
+			md5sum = NULL;
+			free(origin_user);
+			origin_user = NULL;
+			free(filename);
+			filename = NULL;
 			break;
 
 		// Unknown command
@@ -444,6 +480,7 @@ void *iluvatarClient(void *args) {
 			// When UNKNOWN_COMMAND do nothing (message already shown in IluvatarSon)
 			break;
 	}
+
 	if (NULL != data) {
 		free(data);
 		data = NULL; 
@@ -452,10 +489,11 @@ void *iluvatarClient(void *args) {
 		free(header);
 		header = NULL;
 	}
+
 	type = 0x07;
 
-	if(received_OK) {
-		// open again thecommand line
+	if (received_OK) {
+		// open again the command line
 		asprintf(&buffer, CMD_LINE_PROMPT, COLOR_CLI_TXT, CMD_ID_BYTE);
 		pthread_mutex_lock(s->server->mutex_print);
 		printMsg(buffer);

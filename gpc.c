@@ -16,7 +16,7 @@
 * @Return: Returns 1.
 ***********************************************************************/
 char GPC_readFrame(int fd, char *type, char **header, char **data) {
-	char *buffer = NULL;
+//	char *buffer = NULL;
 	char byte = 0x07;
 	unsigned short length = 0;
 	int n;
@@ -55,10 +55,10 @@ char GPC_readFrame(int fd, char *type, char **header, char **data) {
 	read(fd, &byte, sizeof(char));
 
 	// read header
-	buffer = SHAREDFUNCTIONS_readUntil(fd, ']');
-	*header = strdup(buffer);
-	free(buffer);
-	buffer = NULL;
+	*header = SHAREDFUNCTIONS_readUntil(fd, ']');
+//	*header = strdup(buffer);
+//	free(buffer);
+//	buffer = NULL;
 
 	// read lenght (2 bytes)
 	read(fd, &length, 2);
@@ -142,42 +142,6 @@ char GPC_writeFrame(int fd, char type, char *header, char *data, unsigned short 
 	free(frame);
 	frame = NULL;
 	return (1);
-}
-
-/**********************************************************************
-* @Purpose: Get the MD5SUM of the given file.
-* @Params: in: filename = name of the file to get the MD5SUM.
-* @Return: Returns the MD5SUM of the file.
-**********************************************************************/
-char *GPC_getMD5Sum(char *filename) {
-	char *md5sum = NULL;
-	int fd_pipe[2];
-	int status = 0;
-	int pid = 0;
-
-	if (pipe(fd_pipe) == -1) {
-		printMsg("ERROR: The Pipe to check the MD5SUM of the file could not be created\n");
-		return (NULL);
-	}
-
-	pid = fork();
-	
-	if (0 == pid) {
-		close(fd_pipe[0]);
-		dup2(fd_pipe[1], 1);
-		execlp("md5sum", "md5sum", filename, NULL);
-		close(fd_pipe[1]);
-		exit(1);
-	} else if (pid > 0) {
-		close(fd_pipe[1]);
-		md5sum = SHAREDFUNCTIONS_readUntil(fd_pipe[0], ' ');
-		waitpid(pid, &status, 0);
-		close(fd_pipe[0]);
-	} else {
-		printMsg("ERROR: The fork to check the MD5SUM of the file could not be created\n");
-		return (NULL);
-	}
-	return (md5sum);
 }
 
 /**********************************************************************

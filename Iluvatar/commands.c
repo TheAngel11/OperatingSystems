@@ -4,7 +4,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 06/01/2023
+* @Last change: 07/01/2023
 *********************************************************************/
 #include "commands.h"
 
@@ -388,7 +388,7 @@ char socketsSendMsg(char *sender, Element e, char *msg, pthread_mutex_t *mutex) 
 * 			in: filename = filename to send.
 * @Return: Returns 0 if the file was sent successfully, otherwise returns 1 or -1.
 *********************************************************************/
-char socketsSendFile(IluvatarSon iluvatar, Element e, char *filename, pthread_mutex_t *mutex) {
+char socketsSendFile(char *username, Element e, char *filename, char *directory, pthread_mutex_t *mutex) {
 	char *filename_path = NULL;
 	int file_size = 0;
 	char *md5sum = NULL;
@@ -398,7 +398,7 @@ char socketsSendFile(IluvatarSon iluvatar, Element e, char *filename, pthread_mu
 	char type = 0x07;
 	int fd_file = FD_NOT_FOUND;
 
-	asprintf(&filename_path, ".%s/%s", iluvatar.directory, filename);
+	asprintf(&filename_path, ".%s/%s", directory, filename);
 	fd_file = open(filename_path, O_RDONLY);
 
 	// check file FD
@@ -431,9 +431,9 @@ char socketsSendFile(IluvatarSon iluvatar, Element e, char *filename, pthread_mu
 	}
 
 	// get MD5SUM
-	md5sum = GPC_getMD5Sum(filename_path);
+	md5sum = SHAREDFUNCTIONS_getMD5Sum(filename_path);
 	// Prepare the data to send
-	data = GPC_sendFile(iluvatar.username, filename, file_size, md5sum);
+	data = GPC_sendFile(username, filename, file_size, md5sum);
 	free(md5sum);
 	md5sum = NULL;
 	free(filename_path);
@@ -457,23 +457,25 @@ char socketsSendFile(IluvatarSon iluvatar, Element e, char *filename, pthread_mu
 
 		// Send the file
 		while (file_size > GPC_FILE_MAX_BYTES) {
-			data = (char *) malloc(sizeof(char)  * GPC_FILE_MAX_BYTES);
+			data = (char *) malloc(sizeof(char) * (GPC_FILE_MAX_BYTES + 1));
 			read(fd_file, data, GPC_FILE_MAX_BYTES);
+			data[GPC_FILE_MAX_BYTES] = '\0';
 			GPC_writeFrame(client.server_fd, 0x04, GPC_SEND_FILE_DATA_HEADER_IN, data, GPC_FILE_MAX_BYTES);			
 			free(data);
 			data = NULL;
 			file_size -= GPC_FILE_MAX_BYTES;
 		}
 
-		data = (char *) malloc(sizeof(char)  * file_size);
+		data = (char *) malloc(sizeof(char) * (file_size + 1));
 		read(fd_file, data, file_size);
+		data[file_size] = '\0';
 		GPC_writeFrame(client.server_fd, 0x04, GPC_SEND_FILE_DATA_HEADER_IN, data, file_size);
 		free(data);
 		data = NULL;
 		close(fd_file);
-
 		// Get the md5sum answer
 		GPC_readFrame(client.server_fd, &type, &header, NULL);
+
 		if (0 == strcmp(header, GPC_SEND_FILE_HEADER_KO_OUT) || type != 0x05) {
 		    pthread_mutex_lock(mutex);
 			printMsg(COLOR_RED_TXT);
@@ -511,17 +513,18 @@ char socketsSendFile(IluvatarSon iluvatar, Element e, char *filename, pthread_mu
 * 		   in: iluvatar = instance of IluvatarSon
 *          in/out: mutex = screen mutex to prevent writing to screen
 *                  simultaneously
-* @Return: Returns 0 if the file was sent successfully, otherwise returns 1 or -1.
+* @Return: Returns 0 if the file was sent successfully, otherwise 1.
 *********************************************************************/
-char mqSendFile(mqd_t qfd, char *filename, IluvatarSon iluvatar, pthread_mutex_t *mutex) {
+char mqSendFile(mqd_t qfd, char *filename, char *directory, char *username, pthread_mutex_t *mutex) {
 	char *filename_path = NULL;
 	int file_size = 0;
 	char *md5sum = NULL;
 	char *message_send = NULL;
 	char *message_recv = NULL;
 	int fd_file = FD_NOT_FOUND;
+	struct mq_attr attr;
 
-	asprintf(&filename_path, ".%s/%s", iluvatar.directory, filename);
+	asprintf(&filename_path, ".%s/%s", directory, filename);
 	fd_file = open(filename_path, O_RDONLY);
 
 	// check file FD
@@ -534,7 +537,7 @@ char mqSendFile(mqd_t qfd, char *filename, IluvatarSon iluvatar, pthread_mutex_t
 		// free memory
 		free(filename_path);
 		filename_path = NULL;
-		return (-1);
+		return (1);
 	}
 
 	// get file size
@@ -550,13 +553,13 @@ char mqSendFile(mqd_t qfd, char *filename, IluvatarSon iluvatar, pthread_mutex_t
 		// free memory
 		free(filename_path);
 		filename_path = NULL;
-		return (-1);
+		return (1);
 	}
 
 	// Get the MD5SUM
-	md5sum = GPC_getMD5Sum(filename_path);
+	md5sum = SHAREDFUNCTIONS_getMD5Sum(filename_path);
 	// Prepare the message to send
-	message_send = GPC_createNeighborMessageFileInfo(iluvatar.username, filename, file_size, md5sum);
+	message_send = GPC_createNeighborMessageFileInfo(username, filename, file_size, md5sum);
 	free(filename_path);
 	filename_path = NULL;
 	free(md5sum);
@@ -569,7 +572,7 @@ char mqSendFile(mqd_t qfd, char *filename, IluvatarSon iluvatar, pthread_mutex_t
 		printMsg("ERROR: The message could not be sent\n");
 		printMsg(COLOR_DEFAULT_TXT);
 		pthread_mutex_unlock(mutex);
-		return (-1);
+		return (1);
 	}
 
 	free(message_send);
@@ -588,7 +591,7 @@ char mqSendFile(mqd_t qfd, char *filename, IluvatarSon iluvatar, pthread_mutex_t
 			pthread_mutex_unlock(mutex);
 			free(message_send);
 			message_send = NULL;
-			return (-1);
+			return (1);
 		}
 		
 		free(message_send);
@@ -608,14 +611,13 @@ char mqSendFile(mqd_t qfd, char *filename, IluvatarSon iluvatar, pthread_mutex_t
 		pthread_mutex_unlock(mutex);
 		free(message_send);
 		message_send = NULL;
-		return (-1);
+		return (1);
 	}
 
 	free(message_send);
 	message_send = NULL;
 	close(fd_file);
 	
-	struct mq_attr attr;
 	// get the attributes of the queue
 	if (mq_getattr(qfd, &attr) == -1) {
 		pthread_mutex_lock(mutex);
@@ -624,7 +626,7 @@ char mqSendFile(mqd_t qfd, char *filename, IluvatarSon iluvatar, pthread_mutex_t
 		printMsg(COLOR_DEFAULT_TXT);
 		pthread_mutex_unlock(mutex);
 		perror("mq_getattr");
-		return (-1);
+		return (1);
 	}
 	
 	// Receive the answer
@@ -650,12 +652,12 @@ char mqSendFile(mqd_t qfd, char *filename, IluvatarSon iluvatar, pthread_mutex_t
 		return (-1);
 	}*/
 
-	if(message_recv != NULL) {
+	if (message_recv != NULL) {
 		free(message_recv);
 		message_recv = NULL;
 	}
 
-	if(message_send != NULL) {
+	if (message_send != NULL) {
 		free(message_send);
 		message_send = NULL;
 	}
@@ -693,6 +695,19 @@ char checkUserIP(char *origin_ip, char *destination_ip) {
 	return (IS_REMOTE_USER);
 }
 
+/*********************************************************************
+* @Purpose: Send a message to another IluvatarSon.
+* @Params: in: clients = list of users of the sender
+*          in: dest_username = string containing the username of the
+*		       destination IluvatarSon
+*		   in: message = string containing the message to send
+*		   in: origin_username = string containing the username of the
+*		       sender
+*		   in: origin_ip = string with the IP address of the sender
+*		   in/out: mutex = screen mutex to prevent writing to screen
+*		           simultaneously
+* @Return: ----
+*********************************************************************/
 void sendMsgCommand(BidirectionalList clients, char *dest_username, char *message, char *origin_username, char *origin_ip, pthread_mutex_t *mutex) {
 	Element e;
 	mqd_t qfd;
@@ -747,15 +762,108 @@ void sendMsgCommand(BidirectionalList clients, char *dest_username, char *messag
 
 			// send message
 			if (mq_send(qfd, buffer, strlen(buffer) + 1, 0) == -1) {
+				pthread_mutex_lock(mutex);
 				printMsg(COLOR_RED_TXT);
 				printMsg("ERROR: The message could not be sent\n");
 				printMsg(COLOR_DEFAULT_TXT);
+				pthread_mutex_unlock(mutex);
 			} else {
+				pthread_mutex_lock(mutex);
 				printMsg("Message correctly sent\n"); 
+				pthread_mutex_unlock(mutex);
 			}
 					
 			free(buffer);
 			buffer = NULL;
+			mq_close(qfd);
+		}
+		// send frame to count new message
+	} else {
+	    // show error message for unfound user
+		asprintf(&buffer, USER_NOT_FOUND_ERROR_MSG, dest_username);
+		pthread_mutex_lock(mutex);
+		printMsg(COLOR_RED_TXT);
+		printMsg(buffer);
+		printMsg(COLOR_DEFAULT_TXT);
+		pthread_mutex_unlock(mutex);
+		// free memory
+		free(buffer);
+		buffer = NULL;
+	}
+}
+
+/*********************************************************************
+* @Purpose: Send a file to another IluvatarSon.
+* @Params: in: clients = list of users of the sender
+*          in: dest_username = string containing the username of the
+*		       destination IluvatarSon
+*		   in: file = string containing the name of the file to send
+*		   in: directory = string containing the directory of the file
+*		   in: origin_username = string containing the username of the
+*		       sender
+*		   in: origin_ip = string with the IP address of the sender
+*		   in/out: mutex = screen mutex to prevent writing to screen
+*		           simultaneously
+* @Return: ----
+*********************************************************************/
+void sendFileCommand(BidirectionalList clients, char *dest_username, char *file, char *directory, char *origin_username, char *origin_ip, pthread_mutex_t *mutex) {
+	Element e;
+	mqd_t qfd;
+	char *buffer = NULL;
+
+	// search destination user
+	if (USER_FOUND == searchUserInList(clients, dest_username, &e)) {
+		// check if remote user
+		if (IS_REMOTE_USER == checkUserIP(origin_ip, e.ip_network)) {
+		    // send file
+			if (0 != socketsSendFile(origin_username, e, file, directory, mutex)) {
+				// free memory
+				free(e.username);
+				e.username = NULL;
+				free(e.ip_network);
+				e.ip_network = NULL;
+			    return;
+			}
+					
+			// free memory
+			free(e.username);
+			e.username = NULL;
+			free(e.ip_network);
+			e.ip_network = NULL;
+		// user in same machine
+		} else {
+	        // check destination user is not origin user
+			if (0 == strcmp(origin_username, e.username)) {
+		        pthread_mutex_lock(mutex);
+				printMsg(COLOR_RED_TXT);
+				printMsg(SEND_MSG_ERROR_SAME_USER);
+				printMsg(COLOR_DEFAULT_TXT);
+				pthread_mutex_unlock(mutex);
+				// free memory
+				free(e.username);
+				e.username = NULL;
+				free(e.ip_network);
+				e.ip_network = NULL;
+				return;
+			}
+
+			// free memory
+			free(e.username);
+			e.username = NULL;
+			free(e.ip_network);
+			e.ip_network = NULL;
+			// open queue
+			asprintf(&buffer, "/%d", e.pid);
+			qfd = mq_open(buffer, O_RDWR);
+			free(buffer);
+			buffer = NULL;
+			
+			// send file
+			if (0 != mqSendFile(qfd, file, directory, origin_username, mutex)) {
+			    mq_close(qfd);
+				return;
+			}
+
 			mq_close(qfd);
 		}
 		// send frame to count new message
@@ -784,8 +892,6 @@ void sendMsgCommand(BidirectionalList clients, char *dest_username, char *messag
 * @Return: ----
 *********************************************************************/
 char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, BidirectionalList *clients, char **command, pthread_mutex_t *mutex) {
-	char *header = NULL;
-
 	switch (id) {
 	    case IS_UPDATE_USERS_CMD:
 			pthread_mutex_lock(mutex);
@@ -801,94 +907,12 @@ char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 		    sendMsgCommand(*clients, command[2], command[3], iluvatar.username, iluvatar.ip_address, mutex);
 			break;
 		case IS_SEND_FILE_CMD:
-			// Find the user
-			/*e = findUserByList(*clients, command[2]);
-			if (e.username != NULL && e.ip_network != NULL) {
-				if (strchr(command[3], '.') != NULL || id == IS_SEND_MSG_CMD) {
-					// We get the hostnames to compare them
-					originHostname = getHostnameByIP(iluvatar.ip_address);
-					destHostname = getHostnameByIP(e.ip_network);
-
-					// We get the hostname of the origin and destination to check if they are in the same machine
-					if (strcmp(destHostname, originHostname) == 0) {
-						// If they are in the same machine, we use message queues
-						// We check if the user is sending a message to himself
-						if (strcasecmp(e.username, iluvatar.username) != 0) {
-							// Open the queue
-							asprintf(&buffer, "/%d", e.pid);
-							qfd = mq_open(buffer, O_RDWR);
-							free(buffer);
-							buffer = NULL;
-
-							switch (id) {
-								case IS_SEND_MSG_CMD:
-									message_send = GPC_createNeighborMessageMsg(iluvatar.username, command[3]);
-									
-									// We send the message
-									if (mq_send(qfd, message_send, strlen(message_send) + 1, 0) == -1) {
-										printMsg(COLOR_RED_TXT);
-										printMsg("ERROR: The message could not be sent\n");
-										printMsg(COLOR_DEFAULT_TXT);
-									} else {
-										printMsg("Message correctly sent\n"); 
-									}
-									free(message_send);
-									message_send = NULL;
-									break;
-								case IS_SEND_FILE_CMD:
-									returnCode = mqSendFile(qfd, command[3], iluvatar, mutex);
-									break;
-							}				
-							mq_close(qfd);
-							
-						} else {
-							printMsg(COLOR_RED_TXT);
-							printMsg("ERROR: You can not send a message to yourself\n");
-							printMsg(COLOR_DEFAULT_TXT);
-						}
-
-					} else {
-						// If they are in different machines, we use sockets
-						switch (id) {
-							case IS_SEND_MSG_CMD:
-								returnCode = socketsSendMsg(iluvatar, e, command[3], mutex);
-								break;
-
-							case IS_SEND_FILE_CMD:
-								returnCode = socketsSendFile(iluvatar, e, command[3], mutex);
-								break;
-						}
-					}
-					free(originHostname);
-					free(destHostname);
-					free(e.username);
-					free(e.ip_network);
-				
-					if(returnCode == -1 || returnCode == 1) {
-						return returnCode;
-					}
-				} else {
-					printMsg(COLOR_RED_TXT);
-					printMsg("ERROR: You need to send a file with an extension!\n");
-					printMsg(COLOR_DEFAULT_TXT);
-				}
-
-			} else {
-				printMsg(COLOR_RED_TXT);
-				printMsg("ERROR: User not found\n");
-				printMsg(COLOR_DEFAULT_TXT);
-			}*/
-
+		    sendFileCommand(*clients, command[2], command[3], iluvatar.directory, iluvatar.username, iluvatar.ip_address, mutex);
 			break;
 		default:
 		    // exit command
 			GPC_writeFrame(fd_dest, 0x06, GPC_EXIT_HEADER, iluvatar.username, strlen(iluvatar.username));
 			break;
-	}
-
-	if (NULL != header) {
-	    free(header);
-		header = NULL;
 	}
 
 	return (0);
