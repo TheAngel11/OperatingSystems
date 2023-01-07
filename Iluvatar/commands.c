@@ -184,7 +184,7 @@ char * getHostnameByIP(char *ip_address) {
 *          in: length = length of the string.
 * @Return: Returns a bidirectional list of users.
 *********************************************************************/
-BidirectionalList COMMANDS_getListFromString(char *users, int length) {
+/*BidirectionalList COMMANDS_getListFromString(char *users, int length) {
     BidirectionalList list = BIDIRECTIONALLIST_create();
 	Element user;
 	char *buffer = NULL;
@@ -217,7 +217,7 @@ BidirectionalList COMMANDS_getListFromString(char *users, int length) {
 	}
 
 	return (list);
-}
+}*/
 
 /*********************************************************************
 * @Purpose: Prints a list of the connected users.
@@ -330,8 +330,6 @@ char searchUserInList(BidirectionalList users, char *username, Element *user) {
 char socketsSendMsg(char *sender, Element e, char *msg, pthread_mutex_t *mutex) {
 	Client client;
 	char *data = NULL;
-	char *header = NULL;
-	char type = 0x07;
 
 	// check message is not empty
 	if (strlen(msg) > 2) {
@@ -353,31 +351,7 @@ char socketsSendMsg(char *sender, Element e, char *msg, pthread_mutex_t *mutex) 
 		}
 		
 		// Send the message
-		GPC_writeFrame(client.server_fd, 0x03, GPC_SEND_MSG_HEADER_IN, data, strlen(data));
-		free(data);
-		data = NULL;
-		// Get the answer
-		GPC_readFrame(client.server_fd, &type, &header, NULL);
-
-		if (0 == strcmp(header, GPC_HEADER_MSGKO)) {
-		    pthread_mutex_lock(mutex);
-			printMsg(COLOR_RED_TXT);
-			printMsg("ERROR: Message have not been correctly sent\n");
-			printMsg(COLOR_DEFAULT_TXT);
-			pthread_mutex_unlock(mutex);
-			free(header);
-			header = NULL;
-			close(client.server_fd);
-			return (-1);
-		} else if (0 == strcmp(header, GPC_HEADER_MSGOK)) {
-		    pthread_mutex_lock(mutex);
-			printMsg("Message correctly sent\n");
-			pthread_mutex_unlock(mutex);
-		}
-
-		close(client.server_fd);
-		free(header);
-		header = NULL;
+		return (CLIENT_sendMsg(&client, &data, mutex));
 	} else {
 	    pthread_mutex_lock(mutex);
 		printMsg(COLOR_RED_TXT);
@@ -394,7 +368,7 @@ char socketsSendMsg(char *sender, Element e, char *msg, pthread_mutex_t *mutex) 
 * @Params: in: iluvatar = iluvatar son.
 * 			in: e = element with the user to send the file.
 * 			in: filename = filename to send.
-* @Return: Returns 0 if the file was sent successfully, otherwise returns 1 or -1.
+* @Return: Returns 0 if the file was sent successfully, otherwise 1.
 *********************************************************************/
 char socketsSendFile(char *username, Element e, char *filename, char *directory, pthread_mutex_t *mutex) {
 	char *filename_path = NULL;
@@ -402,8 +376,6 @@ char socketsSendFile(char *username, Element e, char *filename, char *directory,
 	char *md5sum = NULL;
 	Client client;
 	char *data = NULL;
-	char *header = NULL;
-	char type = 0x07;
 	int fd_file = FD_NOT_FOUND;
 
 	asprintf(&filename_path, ".%s/%s", directory, filename);
@@ -419,7 +391,7 @@ char socketsSendFile(char *username, Element e, char *filename, char *directory,
 		// free memory
 		free(filename_path);
 		filename_path = NULL;
-		return (-1);
+		return (1);
 	}
 
 	// get file size
@@ -435,7 +407,7 @@ char socketsSendFile(char *username, Element e, char *filename, char *directory,
 		// free memory
 		free(filename_path);
 		filename_path = NULL;
-		return (-1);
+		return (1);
 	}
 
 	// get MD5SUM
@@ -458,51 +430,8 @@ char socketsSendFile(char *username, Element e, char *filename, char *directory,
 			raise(SIGINT);
 		}
 
-		// Send the information message
-		GPC_writeFrame(client.server_fd, 0x04, GPC_SEND_FILE_INFO_HEADER_IN, data, strlen(data));
-		free(data);
-		data = NULL;
-
-		// Send the file
-		while (file_size > GPC_FILE_MAX_BYTES) {
-			data = (char *) malloc(sizeof(char) * (GPC_FILE_MAX_BYTES + 1));
-			read(fd_file, data, GPC_FILE_MAX_BYTES);
-			data[GPC_FILE_MAX_BYTES] = '\0';
-			GPC_writeFrame(client.server_fd, 0x04, GPC_SEND_FILE_DATA_HEADER_IN, data, GPC_FILE_MAX_BYTES);			
-			free(data);
-			data = NULL;
-			file_size -= GPC_FILE_MAX_BYTES;
-		}
-
-		data = (char *) malloc(sizeof(char) * (file_size + 1));
-		read(fd_file, data, file_size);
-		data[file_size] = '\0';
-		GPC_writeFrame(client.server_fd, 0x04, GPC_SEND_FILE_DATA_HEADER_IN, data, file_size);
-		free(data);
-		data = NULL;
-		close(fd_file);
-		// Get the md5sum answer
-		GPC_readFrame(client.server_fd, &type, &header, NULL);
-
-		if (0 == strcmp(header, GPC_SEND_FILE_HEADER_KO_OUT) || type != 0x05) {
-		    pthread_mutex_lock(mutex);
-			printMsg(COLOR_RED_TXT);
-			printMsg("ERROR: The file sent has lost its integrity\n");
-			printMsg(COLOR_DEFAULT_TXT);
-			pthread_mutex_unlock(mutex);
-			free(header);
-			header = NULL;	
-			close(client.server_fd);
-			return (-1);
-		} else if (0 == strcmp(header, GPC_SEND_FILE_HEADER_OK_OUT) && type == 0x05) {
-		    pthread_mutex_lock(mutex);
-			printMsg("File correctly sent\n");
-			pthread_mutex_unlock(mutex);
-		}
-
-		close(client.server_fd);
-		free(header);
-		header = NULL;
+		// Send file frames
+		return (CLIENT_sendFile(&client, &data, &fd_file, file_size, mutex));
 	} else {
 	    pthread_mutex_lock(mutex);
 		printMsg(COLOR_RED_TXT);
@@ -714,9 +643,10 @@ char checkUserIP(char *origin_ip, char *destination_ip) {
 *		   in: origin_ip = string with the IP address of the sender
 *		   in/out: mutex = screen mutex to prevent writing to screen
 *		           simultaneously
-* @Return: ----
+* @Return: Returns SEND_MSG_OK if no errors occurred, otherwise
+*          SEND_MSG_KO.
 *********************************************************************/
-void sendMsgCommand(BidirectionalList clients, char *dest_username, char *message, char *origin_username, char *origin_ip, pthread_mutex_t *mutex) {
+char sendMsgCommand(BidirectionalList clients, char *dest_username, char *message, char *origin_username, char *origin_ip, pthread_mutex_t *mutex) {
 	Element e;
 	mqd_t qfd;
 	char *buffer = NULL;
@@ -732,7 +662,7 @@ void sendMsgCommand(BidirectionalList clients, char *dest_username, char *messag
 				e.username = NULL;
 				free(e.ip_network);
 				e.ip_network = NULL;
-			    return;
+			    return (SEND_MSG_KO);
 			}
 					
 			// free memory
@@ -753,7 +683,7 @@ void sendMsgCommand(BidirectionalList clients, char *dest_username, char *messag
 				e.username = NULL;
 				free(e.ip_network);
 				e.ip_network = NULL;
-				return;
+				return (SEND_MSG_KO);
 			}
 
 			// free memory
@@ -767,10 +697,15 @@ void sendMsgCommand(BidirectionalList clients, char *dest_username, char *messag
 			free(buffer);
 			buffer = NULL;
 			
-			// prepare data for frame
-			if (strlen(message) > 2) {
-			    asprintf(&buffer, "msg%c%s%c%s", ICP_DATA_SEPARATOR, origin_username, ICP_DATA_SEPARATOR, message);
+			// check message not empty
+			if (strlen(message) == 2) {
+			    // invalid message
+				mq_close(qfd);
+				return (SEND_MSG_KO);
 			}
+			
+			// prepare data for frame
+			asprintf(&buffer, "msg%c%s%c%s", ICP_DATA_SEPARATOR, origin_username, ICP_DATA_SEPARATOR, message);
 
 			// send message
 			if (mq_send(qfd, buffer, strlen(buffer) + 1, 0) == -1) {
@@ -779,12 +714,21 @@ void sendMsgCommand(BidirectionalList clients, char *dest_username, char *messag
 				printMsg("ERROR: The message could not be sent\n");
 				printMsg(COLOR_DEFAULT_TXT);
 				pthread_mutex_unlock(mutex);
+				// free memory
+				if (NULL != buffer) {
+			        free(buffer);
+					buffer = NULL;
+				}
+
+				mq_close(qfd);
+				return (SEND_MSG_KO);
 			} else {
 				pthread_mutex_lock(mutex);
 				printMsg("Message correctly sent\n"); 
 				pthread_mutex_unlock(mutex);
 			}
 					
+			// free memory
 			if (NULL != buffer) {
 			    free(buffer);
 				buffer = NULL;
@@ -792,7 +736,8 @@ void sendMsgCommand(BidirectionalList clients, char *dest_username, char *messag
 
 			mq_close(qfd);
 		}
-		// send frame to count new message
+
+		return (SEND_MSG_OK);
 	} else {
 	    // show error message for unfound user
 		asprintf(&buffer, USER_NOT_FOUND_ERROR_MSG, dest_username);
@@ -805,6 +750,8 @@ void sendMsgCommand(BidirectionalList clients, char *dest_username, char *messag
 		free(buffer);
 		buffer = NULL;
 	}
+
+	return (SEND_MSG_KO);
 }
 
 /*********************************************************************
@@ -881,7 +828,6 @@ void sendFileCommand(BidirectionalList clients, char *dest_username, char *file,
 
 			mq_close(qfd);
 		}
-		// send frame to count new message
 	} else {
 	    // show error message for unfound user
 		asprintf(&buffer, USER_NOT_FOUND_ERROR_MSG, dest_username);
@@ -919,7 +865,10 @@ char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 			printUsersList(*clients, mutex);
 			break;
 		case IS_SEND_MSG_CMD:
-		    sendMsgCommand(*clients, command[2], command[3], iluvatar.username, iluvatar.ip_address, mutex);
+		    if (SEND_MSG_OK == sendMsgCommand(*clients, command[2], command[3], iluvatar.username, iluvatar.ip_address, mutex)) {
+			    //TODO: send frame to count new message
+			}
+
 			break;
 		case IS_SEND_FILE_CMD:
 		    sendFileCommand(*clients, command[2], command[3], iluvatar.directory, iluvatar.username, iluvatar.ip_address, mutex);

@@ -3,7 +3,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 06/01/2023
+* @Last change: 07/01/2023
 *********************************************************************/
 #define _GNU_SOURCE 1
 #include <stdio.h>
@@ -334,7 +334,6 @@ int main(int argc, char* argv[]) {
     char *buffer = NULL;
 	int exit_program = 0, read_ok = ILUVATARSON_KO;
 	char *header = NULL;
-	char type = 0x07;
 	fd_set read_fds;
 
 	iluvatarSon = newIluvatarSon();
@@ -457,35 +456,8 @@ int main(int argc, char* argv[]) {
 				pthread_mutex_unlock(&mutex_print);
 				exit_program = 1;
 			} else if (FD_ISSET(client.server_fd, &read_fds)) {				
-				// If the read frame returns 0, it means that the connection has been closed
-				if (GPC_readFrame(client.server_fd, &type, &header, &buffer) == 0) {
-					pthread_mutex_lock(&mutex_print);
-					printMsg(COLOR_RED_TXT);
-					printMsg(ARDA_CONNECTION_CLOSED_MSG);
-					printMsg(COLOR_DEFAULT_TXT);
-					pthread_mutex_unlock(&mutex_print);
-					exit_program = 1;
-				} else if ((0 == strcmp(header, GPC_UPDATE_USERS_HEADER_OUT)) && (0x02 == type)){
-					// Manage UPDATE USERS
-					BIDIRECTIONALLIST_destroy(&users_list);
-					users_list = COMMANDS_getListFromString(buffer, (int) strlen(buffer));
-					free(buffer);
-					buffer = NULL;
-				} else if ((0 == strcmp(header, GPC_HEADER_CONOK)) && (0x06 == type)) {
-					// Manage EXIT
-					pthread_mutex_lock(&mutex_print);
-					printMsg(COLOR_DEFAULT_TXT);
-					printMsg(EXIT_ARDA_MSG);
-					pthread_mutex_unlock(&mutex_print);
-					exit_program = 1;
-				} else {
-					pthread_mutex_lock(&mutex_print);
-					printMsg(COLOR_RED_TXT);
-					printMsg(ERROR_DISCONNECT_ILUVATAR_MSG);
-					printMsg(COLOR_DEFAULT_TXT);
-					pthread_mutex_unlock(&mutex_print);
-				}
-				
+				// Arda server replied to sent frame
+				exit_program = CLIENT_manageArdaServerAnswer(&client, &users_list, &mutex_print);
 			} else if (FD_ISSET(STDIN_FILENO, &read_fds)) {
 				// reads and executes the command, then prepares the prompt for next command
 				exit_program = manageUserPrompt();

@@ -38,7 +38,6 @@
 #define ERROR_SEND_FILE_MORE_ARGS	"ERROR: \"SEND FILE\" has too many arguments\n"
 #define UPDATE_USERS_SUCCESS_MSG	"Users list updated\n"
 #define LIST_USERS_N_USERS_MSG 		"There are %d children of Iluvatar connected:\n"
-#define EXIT_ARDA_MSG				"\nDisconnecting from Arda. See you soon, son of Iluvatar\n\n"
 #define SEND_MSG_ERROR_SAME_USER	"ERROR: You cannot send a message to yourself\n"
 #define USER_NOT_FOUND_ERROR_MSG	"ERROR: %s was not found. Try updating the list of users\n"
 
@@ -63,6 +62,8 @@
 #define USER_NOT_FOUND			0
 #define IS_REMOTE_USER			1
 #define IS_LOCAL_USER			0
+#define SEND_MSG_OK				1
+#define SEND_MSG_KO				0
 
 /*********************************************************************
 * @Purpose: Executes the command entered by the user.
@@ -79,6 +80,6 @@ int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda
 *          in: length = length of the string.
 * @Return: Returns a bidirectional list of users.
 *********************************************************************/
-BidirectionalList COMMANDS_getListFromString(char *users, int length);
+//BidirectionalList COMMANDS_getListFromString(char *users, int length);
 
 #endif
