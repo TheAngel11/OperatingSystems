@@ -170,11 +170,12 @@ char sendFileFrames(mqd_t *qfd, char **path, char *filename, int *fd_file, char 
 *                  simultaneously
 * @Return: Returns 0 if the file was sent successfully, otherwise 1.
 *********************************************************************/
-char ICP_sendFile(int pid, char *filename, char *directory, char *username, semaphore *sem_queue, pthread_mutex_t *mutex) {
+char ICP_sendFile(int pid, char *filename, char *directory, char *username, pthread_mutex_t *mutex) {
 	char *filename_path = NULL;
 	int file_size = 0;
 	int fd_file = FD_NOT_FOUND;
 	mqd_t qfd;
+	semaphore sem_queue;
 	struct mq_attr attr;
 	char *buffer = NULL;
 
@@ -183,6 +184,8 @@ char ICP_sendFile(int pid, char *filename, char *directory, char *username, sema
 	qfd = mq_open(buffer, O_RDWR);
 	free(buffer);
 	buffer = NULL;
+	// create semaphore
+	SEM_constructor_with_name(&sem_queue, pid);
 	// open the file to send
 	asprintf(&filename_path, ".%s/%s", directory, filename);
 	fd_file = open(filename_path, O_RDONLY);
@@ -243,9 +246,9 @@ char ICP_sendFile(int pid, char *filename, char *directory, char *username, sema
 	}
 	
 	// wait for queue to be ready
-	SEM_wait(sem_queue);
+	SEM_wait(&sem_queue);
 	// Receive the answer
-	buffer = (char *) malloc((attr.mq_msgsize + 1) * sizeof(char));	//TODO: S'ha de crear un semafor de sincronitzacio (ho explico a iluvatarSon linia 488 aprox)
+	buffer = (char *) malloc((attr.mq_msgsize + 1) * sizeof(char));
 	
 	if (mq_receive(qfd, buffer, attr.mq_msgsize, NULL) == -1) {
 		pthread_mutex_lock(mutex);
@@ -258,16 +261,10 @@ char ICP_sendFile(int pid, char *filename, char *directory, char *username, sema
 		buffer = NULL;
 		// close queue
 		mq_close(qfd);
+		// unblock receiver process
+		SEM_signal(&sem_queue);
 		return (1);
 	}
-
-	//TODO: debug
-	pthread_mutex_lock(mutex);
-	printMsg("Received MQ: ");
-	printMsg(buffer);
-	printMsg("\n");
-	pthread_mutex_unlock(mutex);
-	//TODO: end
 
 	if (0 == strcmp(buffer, FILE_OK_REPLY)) {
 		pthread_mutex_lock(mutex);
@@ -283,6 +280,8 @@ char ICP_sendFile(int pid, char *filename, char *directory, char *username, sema
 		buffer = NULL;
 		// close queue
 		mq_close(qfd);
+		// unblock receiver process
+		SEM_signal(&sem_queue);
 		return (1);
 	}
 
@@ -291,6 +290,8 @@ char ICP_sendFile(int pid, char *filename, char *directory, char *username, sema
 
 	// close queue
 	mq_close(qfd);
+	// unblock receiver process
+	SEM_signal(&sem_queue);
 	return (0);
 }
 
@@ -470,25 +471,30 @@ char checkMD5Sum(char **path, char **filename, char **md5sum, char **user, pthre
 * @Return: Returns ICP_READ_FRAME_NO_ERROR if the file was received
 *          correctly, otherwise ICP_READ_FRAME_ERROR.
 **********************************************************************/
-char ICP_receiveFile(char **frame, char *directory, struct mq_attr *attr, int qfd, semaphore *sem_queue, pthread_mutex_t *mutex) {
+char ICP_receiveFile(char **frame, char *directory, struct mq_attr *attr, int qfd, int pid, pthread_mutex_t *mutex) {
 	char *origin_user = NULL;
 	char *filename = NULL;
 	char *filename_path = NULL;
 	char *md5sum = NULL;
+	semaphore sem_queue;
 	int file_size = 0;
 	int file_fd = -1;
 
+	// create semaphore
+	SEM_constructor_with_name(&sem_queue, pid);
+	// get file frames
 	parseInitialSendFileFrame(*frame, &origin_user, &filename, &file_size, &md5sum);
 	free(*frame);
 	*frame = NULL;
+	// open file
 	asprintf(&filename_path, ".%s/%s", directory, filename);
 	file_fd = open(filename_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 	
 	while (file_size > ICP_FILE_MAX_BYTES) {
-		// Read the message
+		// Read frame
 		if (ICP_READ_FRAME_ERROR == readFileFrame(file_fd, qfd, frame, attr->mq_msgsize, ICP_FILE_MAX_BYTES, mutex)) {
 			// signal that queue is ready
-			SEM_signal(sem_queue);
+			SEM_signal(&sem_queue);
 		    return (ICP_READ_FRAME_ERROR);
 		}
 
@@ -498,7 +504,7 @@ char ICP_receiveFile(char **frame, char *directory, struct mq_attr *attr, int qf
 	// Read the last frame
 	if (ICP_READ_FRAME_ERROR == readFileFrame(file_fd, qfd, frame, attr->mq_msgsize, file_size, mutex)) {
 		// signal that queue is ready
-		SEM_signal(sem_queue);
+		SEM_signal(&sem_queue);
 	    return (ICP_READ_FRAME_ERROR);
 	}
 	
@@ -514,12 +520,14 @@ char ICP_receiveFile(char **frame, char *directory, struct mq_attr *attr, int qf
 			printMsg(COLOR_DEFAULT_TXT);
 			pthread_mutex_unlock(mutex);
 			// signal that queue is ready
-			SEM_signal(sem_queue);
+			SEM_signal(&sem_queue);
+			// wait for sender to receive reply
+			SEM_wait(&sem_queue);
 			return (ICP_READ_FRAME_ERROR);
 		}
 	    
 		// signal that queue is ready
-		SEM_signal(sem_queue);
+		SEM_signal(&sem_queue);
 	} else {
 		// send reply of failure
 		if (mq_send(qfd, FILE_KO_REPLY, strlen(FILE_KO_REPLY) + 1,  0) == -1) {
@@ -529,24 +537,17 @@ char ICP_receiveFile(char **frame, char *directory, struct mq_attr *attr, int qf
 			printMsg(COLOR_DEFAULT_TXT);
 			pthread_mutex_unlock(mutex);
 			// signal that queue is ready
-			SEM_signal(sem_queue);
+			SEM_signal(&sem_queue);
+			// wait for sender to receive reply
+			SEM_wait(&sem_queue);
 			return (ICP_READ_FRAME_ERROR);
 		}
 
 	    // signal that queue is ready
-		SEM_signal(sem_queue);
+		SEM_signal(&sem_queue);
 	}
 
-	//Sending a message to the origin user saying the md5sum verification result
-	//TODO: s'ha de crear un semàfor de sincronització per a que aquest missatge el rebi el que ha enviat el fitxer a commands.c, i no aquest, que l'ha rebut (ja que si descomento això i la rebuda a commands.c, el select d'aquí rep el missatge que he enviat aquí i no s'envia a qui li vull enviar)
-	/*if(mq_send(qfd, md5sum_verification, strlen(md5sum_verification) + 1,  0) == -1) {
-		pthread_mutex_lock(&mutex_print);
-		printMsg(COLOR_RED_TXT);
-		printMsg("ERROR: The message could not be sent\n");
-		printMsg(COLOR_DEFAULT_TXT);
-		pthread_mutex_unlock(&mutex_print);
-		exit_program = 1; 
-	}*/
-
+	// wait for sender to receive reply
+	SEM_wait(&sem_queue);
 	return (ICP_READ_FRAME_NO_ERROR);
 }

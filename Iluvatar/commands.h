@@ -61,12 +61,12 @@
 #define ERROR_CMD_ARGS			-1
 
 /* Other constants */
-#define USER_FOUND				1
-#define USER_NOT_FOUND			0
 #define IS_REMOTE_USER			1
 #define IS_LOCAL_USER			0
 #define SEND_MSG_OK				1
 #define SEND_MSG_KO				0
+#define USER_FOUND				1
+#define USER_NOT_FOUND			0
 
 /*********************************************************************
 * @Purpose: Executes the command entered by the user.
@@ -75,6 +75,6 @@
 *		   in: fd_arda = Arda's file descriptor (connected to server)
 * @Return: 0 if EXIT command entered, otherwise 1.
 *********************************************************************/
-int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda, BidirectionalList *users_list, semaphore *sem_mq, pthread_mutex_t *mutex);
+int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda, BidirectionalList *users_list,/* semaphore *sem_mq,*/ pthread_mutex_t *mutex);
 
 #endif

@@ -51,7 +51,7 @@ char ICP_sendMsg(int pid, char *message, char *origin_username, pthread_mutex_t 
 *                  simultaneously
 * @Return: Returns 0 if the file was sent successfully, otherwise 1.
 *********************************************************************/
-char ICP_sendFile(int pid, char *filename, char *directory, char *username, semaphore *sem_queue, pthread_mutex_t *mutex);
+char ICP_sendFile(int pid, char *filename, char *directory, char *username, pthread_mutex_t *mutex);
 
 /**********************************************************************
 * @Purpose: Receives a message from another process in the same machine
@@ -64,6 +64,23 @@ char ICP_sendFile(int pid, char *filename, char *directory, char *username, sema
 **********************************************************************/
 void ICP_receiveMsg(char *frame, pthread_mutex_t *mutex);
 
-char ICP_receiveFile(char **frame, char *directory, struct mq_attr *attr, int qfd, semaphore *sem_queue, pthread_mutex_t *mutex);
+/**********************************************************************
+* @Purpose: Gets the file sent by another user in the same machine and
+*           checks it. If there are no errors, copies the file into the
+*           given directory.
+* @Params: in/out: frame = string containing the initial data to get a
+*                  file. This data is formed by the user sending the
+*				   file, the name of the file, the total size of the
+*				   file and the checksum of the file
+*          in: directory = string containing the name of the directory
+*		       in which to copy the file
+*		   in/out: attr = attributes of the message queue
+*		   in: qfd = file descriptor of the message queue
+*		   in/out mutex = screen mutex to prevent writing on screen
+*		          simultaneously
+* @Return: Returns ICP_READ_FRAME_NO_ERROR if the file was received
+*          correctly, otherwise ICP_READ_FRAME_ERROR.
+**********************************************************************/
+char ICP_receiveFile(char **frame, char *directory, struct mq_attr *attr, int qfd, int pid, pthread_mutex_t *mutex);
 
 #endif

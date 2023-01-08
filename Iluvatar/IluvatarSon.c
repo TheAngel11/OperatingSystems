@@ -35,8 +35,7 @@ char *iluvatar_command = NULL;
 BidirectionalList users_list;
 Client client;
 Server server;
-semaphore sem_mq;			// synchronization semaphore to wait for qfd answers when frame sent
-//semaphore sem_fd_mq;		// mutual exclusion semaphore to prevent accessing qfd at same time
+semaphore sem_mq;			// synchronization semaphore to wait for qfd answers when file sent
 mqd_t qfd;
 pthread_t thread_accept;
 pthread_mutex_t mutex_print = PTHREAD_MUTEX_INITIALIZER;
@@ -58,13 +57,8 @@ void disconnectionManager(){
 	mq_close(qfd);
 	asprintf(&buffer, "/%d", getpid());
 	mq_unlink(buffer);
-
 	// destroy semaphore
-	if (1 <= BIDIRECTIONALLIST_getNumberOfElements(users_list)) {
-	    SEM_destructor(&sem_mq);
-//		SEM_destructor(&sem_fd_mq);
-	}
-	
+	SEM_destructor(&sem_mq);
 	// free memory
 	free(buffer);
 	buffer = NULL;
@@ -119,19 +113,6 @@ IluvatarSon newIluvatarSon() {
 	iluvatar.arda_ip_address = NULL;
 
 	return (iluvatar);
-}
-
-/*********************************************************************
-* @Purpose: Initializes semaphores if only 1 user.
-* @Params: ----
-* @Return: ----
-*********************************************************************/
-void initSemaphores() {
-    // check number of users
-	if (1 <= BIDIRECTIONALLIST_getNumberOfElements(users_list)) {
-	    SEM_init(&sem_mq, 0);
-//		SEM_init(&sem_fd_mq, 1);
-	}
 }
 
 /*********************************************************************
@@ -269,7 +250,7 @@ int manageUserPrompt() {
 	
 	// execute command
 	if (NULL != iluvatar_command) {
-		is_exit = COMMANDS_executeCommand(iluvatar_command, &iluvatarSon, client.server_fd, &users_list, &sem_mq, &mutex_print);
+		is_exit = COMMANDS_executeCommand(iluvatar_command, &iluvatarSon, client.server_fd, &users_list, &mutex_print);
 		free(iluvatar_command);
 		iluvatar_command = NULL;
 	}
@@ -319,7 +300,7 @@ char getLocalFrame(struct mq_attr *attr) {
 			ICP_receiveMsg(frame, &mutex_print);
 		} else if (strcmp(type, "file") == 0) {
 			// save received file
-			if (ICP_READ_FRAME_ERROR == ICP_receiveFile(&frame, iluvatarSon.directory, attr, qfd, &sem_mq, &mutex_print)) {
+			if (ICP_READ_FRAME_ERROR == ICP_receiveFile(&frame, iluvatarSon.directory, attr, qfd, getpid(), &mutex_print)) {
 			    // free memory
 				if (NULL != frame) {
 				    free(frame);
@@ -378,8 +359,8 @@ int main(int argc, char* argv[]) {
 	// Configure SIGINT
 	signal(SIGINT, sigintHandler);
 	// Init synchronization semaphore for message queue
-	SEM_constructor_with_name(&sem_mq, ftok("IluvatarSon.c", 'a'));
-//	SEM_constructor_with_name(&sem_fd_mq, ftok("IluvatarSon.c", 'b'));
+	SEM_constructor_with_name(&sem_mq, getpid());
+	SEM_init(&sem_mq, 0);
 
 	// check args
 	if (MIN_N_ARGS != argc) {
@@ -423,7 +404,6 @@ int main(int argc, char* argv[]) {
 			return (-1);
 		}
 
-		initSemaphores();
 		// Open passive socket (prepare Iluvatar server)
 		server = SERVER_init(iluvatarSon.ip_address, iluvatarSon.port);
 
