@@ -21,7 +21,6 @@
 
 typedef struct {
     int server_fd;
-	BidirectionalList clients;  //CLAUDIA: Perquè volem la llista de clients aqui quan la tenim com a global al Iluvatar? 
 } Client;
 
 Client CLIENT_init(char *ip, int port);

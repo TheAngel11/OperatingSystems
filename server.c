@@ -74,7 +74,7 @@ Server SERVER_init(char *ip, int port) {
 
 /*********************************************************************
 * @Purpose: Closes all the file descriptors of the clients.
-* @Params: ----
+* @Params: in/out: server = instance of Server
 * @Return: ----
 *********************************************************************/
 void closeAllClientFDs(Server *server) {
@@ -94,6 +94,13 @@ void closeAllClientFDs(Server *server) {
 	}
 }
 
+/*********************************************************************
+* @Purpose: Sends Connection Request reply.
+* @Params: in/out: server = instance of Server
+*          in/out: data = string with data from connection frame
+*          in: client_fd = file descriptor of the client
+* @Return: ----
+*********************************************************************/
 void answerConnectionRequest(Server *s, char **data, int client_fd) {
     Element element;
 	char *buffer = NULL;
@@ -149,6 +156,13 @@ void answerConnectionRequest(Server *s, char **data, int client_fd) {
 	pthread_mutex_unlock(s->mutex_print);
 }
 
+/*********************************************************************
+* @Purpose: Sends List Petition reply.
+* @Params: in/out: server = instance of Server
+*          in/out: data = string with data from update users frame
+*          in: client_fd = file descriptor of the client
+* @Return: ----
+*********************************************************************/
 void answerListPetition(Server *s, char **data, int client_fd) {
     char *buffer = NULL;
 
@@ -168,6 +182,13 @@ void answerListPetition(Server *s, char **data, int client_fd) {
 	buffer = NULL;
 }
 
+/*********************************************************************
+* @Purpose: Sends Exit Petition reply.
+* @Params: in/out: server = instance of Server
+*          in/out: data = string with data from exit frame
+*          in: client_fd = file descriptor of the client
+* @Return: ----
+*********************************************************************/
 void answerExitPetition(Server *s, char **data, int client_fd) {
     Element element;
 	char *buffer = NULL;
@@ -243,8 +264,9 @@ void answerExitPetition(Server *s, char **data, int client_fd) {
 }
 
 /*********************************************************************
-* @Purpose: Creates the thread for the client that has connected to Arda.
-* @Params: in: args = arguments to pass to thread.
+* @Purpose: Creates the thread for a new client that has connected to
+*           an Arda server.
+* @Params: in: args = arguments to pass to thread
 * @Return: ----
 *********************************************************************/
 void *ardaClient(void *args) {
@@ -252,8 +274,6 @@ void *ardaClient(void *args) {
     char type = 0x07;
     char *header = NULL;
     char *data = NULL;
-    //char *buffer = NULL;
-	// s->client_fd is the fd of the last client connected, so we need to save it
 	int client_fd = s->client_fd;
 	int index_thread = s->n_threads - 1;
 	pthread_mutex_unlock(&s->client_fd_mutex);
@@ -316,6 +336,12 @@ void *ardaClient(void *args) {
     return NULL;
 }
 
+/*********************************************************************
+* @Purpose: Receives the message and sends a reply.
+* @Params: in/out: server = instance of ServerIluvatar
+*          in/out: data = string with data from send msg frame
+* @Return: ----
+*********************************************************************/
 char answerSendMsg(ServerIluvatar *s, char **data) {
 	char *buffer = NULL;
 	char *origin_user = NULL;
@@ -369,6 +395,12 @@ char answerSendMsg(ServerIluvatar *s, char **data) {
 	return (1);
 }
 
+/*********************************************************************
+* @Purpose: Receives the file and sends a reply.
+* @Params: in/out: server = instance of ServerIluvatar
+*          in/out: data = string with data from send file initial frame
+* @Return: ----
+*********************************************************************/
 char answerSendFile(ServerIluvatar *s, char **data) {
 	char *buffer = NULL;
 	char *filename = NULL;
@@ -473,8 +505,8 @@ char answerSendFile(ServerIluvatar *s, char **data) {
 
 /*********************************************************************
 * @Purpose: Creates the thread for the client that has connected to
-*           Iluvatar by a frame sent in different machines.
-* @Params: in: args = arguments to pass to thread.
+*           an Iluvatar server.
+* @Params: in: args = arguments to pass to thread
 * @Return: ----
 *********************************************************************/
 void *iluvatarClient(void *args) {
@@ -604,21 +636,23 @@ void SERVER_runArda(Arda *arda, Server *server) {
 }
 
 /*********************************************************************
- * @Purpose: Gets the IP address of the client given an fd.
- * @Params: in: client_fd = file descriptor of the client.
- * @Return: IP address of the client.
- *********************************************************************/
+* @Purpose: Gets the IP address of the client given an fd.
+* @Params: in: client_fd = file descriptor of the client
+* @Return: IP address of the client.
+*********************************************************************/
 char *SERVER_getClientIP(int client_fd) {
 	struct sockaddr_in addr; 
+	
 	socklen_t addr_size = sizeof(struct sockaddr_in);
 	getpeername(client_fd, (struct sockaddr *)&addr, &addr_size);
+	
 	return inet_ntoa(addr.sin_addr);
 }
 
 /*********************************************************************
 * @Purpose: Runs an initialized IluvatarSon passive socket.
 * @Params: in/out: iluvatarSon = instance of IluvatarSon
-*		   in/out: server = initialized instance of Server.
+*		   in/out: server = initialized instance of Server
 * @Return: ----
 *********************************************************************/
 void SERVER_runIluvatar(IluvatarSon *iluvatarSon, Server *server, pthread_mutex_t *mutex_print) {
@@ -685,7 +719,7 @@ void SERVER_runIluvatar(IluvatarSon *iluvatarSon, Server *server, pthread_mutex_
 }
 
 /*********************************************************************
-* @Purpose: Runs an initialized Arda server.
+* @Purpose: Closes an initialized Arda server.
 * @Params: in/out: server = instance of Server.
 * @Return: ----
 *********************************************************************/
@@ -702,7 +736,7 @@ void SERVER_close(Server *server) {
     BIDIRECTIONALLIST_destroy(&server->clients);
 	
 	// We terminate and realease the resources of the not finished threads
-	for (i = 0; i < server->n_threads; i++) {			//CLAUDIA: el problema d'aixo és que si es fan 100.000 threads i casi tots estan acabats, es faran moltes voltes del bucle innecessàriament
+	for (i = 0; i < server->n_threads; i++) {
 		if(server->thread[i].terminated != 1) {
 			pthread_cancel(server->thread[i].id);
 			pthread_join(server->thread[i].id, NULL);

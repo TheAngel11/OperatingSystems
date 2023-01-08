@@ -530,7 +530,8 @@ char sendMsgCommand(BidirectionalList clients, char *dest_username, char *messag
 *		           simultaneously
 * @Return: ----
 *********************************************************************/
-void sendFileCommand(BidirectionalList clients, char *dest_username, char *file, char *directory, char *origin_username, char *origin_ip, pthread_mutex_t *mutex) {
+void sendFileCommand(BidirectionalList clients, char *dest_username, char *file, char *directory,
+                     char *origin_username, char *origin_ip, semaphore *sem_mq, pthread_mutex_t *mutex) {
 	Element e;
 	char *buffer = NULL;
 
@@ -576,7 +577,7 @@ void sendFileCommand(BidirectionalList clients, char *dest_username, char *file,
 			free(e.ip_network);
 			e.ip_network = NULL;	
 			// send file
-			ICP_sendFile(e.pid, file, directory, origin_username, mutex);
+			ICP_sendFile(e.pid, file, directory, origin_username, sem_mq, mutex);
 		}
 	} else {
 	    // show error message for unfound user
@@ -602,7 +603,7 @@ void sendFileCommand(BidirectionalList clients, char *dest_username, char *file,
 *          in/out: command = string containing the command to execute
 * @Return: ----
 *********************************************************************/
-char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, BidirectionalList *clients, char **command, pthread_mutex_t *mutex) {
+char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, BidirectionalList *clients, char **command, semaphore *sem_mq, pthread_mutex_t *mutex) {
 	switch (id) {
 	    case IS_UPDATE_USERS_CMD:
 			pthread_mutex_lock(mutex);
@@ -621,7 +622,7 @@ char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 
 			break;
 		case IS_SEND_FILE_CMD:
-		    sendFileCommand(*clients, command[2], command[3], iluvatar.directory, iluvatar.username, iluvatar.ip_address, mutex);
+		    sendFileCommand(*clients, command[2], command[3], iluvatar.directory, iluvatar.username, iluvatar.ip_address, sem_mq, mutex);
 			break;
 		default:
 		    // exit command
@@ -661,7 +662,7 @@ void freeMemCmd(char ***args, int *n_args) {
 *		   in: fd_arda = Arda's file descriptor (connected to server)
 * @Return: 0 if EXIT command entered, otherwise 1.
 *********************************************************************/
-int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda, BidirectionalList *users_list, pthread_mutex_t *mutex) {
+int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda, BidirectionalList *users_list, semaphore *sem_mq, pthread_mutex_t *mutex) {
 	char **command = NULL;
 	char error = 0;
 	int n_args = 0, cmd_id = 0;
@@ -673,7 +674,7 @@ int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda
 
 	if ((ERROR_CMD_ARGS != cmd_id) && (IS_NOT_CUSTOM_CMD != cmd_id)) {
 	    // execute custom command
-		error = executeCustomCommand(cmd_id, fd_arda, *iluvatar, users_list, command, mutex);
+		error = executeCustomCommand(cmd_id, fd_arda, *iluvatar, users_list, command, sem_mq, mutex);
 
 		if ((cmd_id == IS_EXIT_CMD) && !error) {
 			freeMemCmd(&command, &n_args);

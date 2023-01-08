@@ -11,11 +11,14 @@
 
 #include "definitions.h"
 #include "sharedFunctions.h"
+#include "semaphore_v2.h"
 
 #define ICP_DATA_SEPARATOR		 	'&'
 #define ICP_FILE_MAX_BYTES		 	512
 #define ICP_READ_FRAME_ERROR	 	0
 #define ICP_READ_FRAME_NO_ERROR	 	1
+#define FILE_OK_REPLY				"FILE OK\0"
+#define FILE_KO_REPLY				"FILE KO\0"
 
 /* Messages */
 #define MQ_ATTR_ERROR_MSG			"ERROR: The attributes of the queue could not be obtained\n"
@@ -48,7 +51,7 @@ char ICP_sendMsg(int pid, char *message, char *origin_username, pthread_mutex_t 
 *                  simultaneously
 * @Return: Returns 0 if the file was sent successfully, otherwise 1.
 *********************************************************************/
-char ICP_sendFile(int pid, char *filename, char *directory, char *username, pthread_mutex_t *mutex);
+char ICP_sendFile(int pid, char *filename, char *directory, char *username, semaphore *sem_queue, pthread_mutex_t *mutex);
 
 /**********************************************************************
 * @Purpose: Receives a message from another process in the same machine
@@ -61,6 +64,6 @@ char ICP_sendFile(int pid, char *filename, char *directory, char *username, pthr
 **********************************************************************/
 void ICP_receiveMsg(char *frame, pthread_mutex_t *mutex);
 
-char ICP_receiveFile(char **frame, char *directory, struct mq_attr *attr, int qfd, pthread_mutex_t *mutex);
+char ICP_receiveFile(char **frame, char *directory, struct mq_attr *attr, int qfd, semaphore *sem_queue, pthread_mutex_t *mutex);
 
 #endif

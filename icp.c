@@ -170,7 +170,7 @@ char sendFileFrames(mqd_t *qfd, char **path, char *filename, int *fd_file, char 
 *                  simultaneously
 * @Return: Returns 0 if the file was sent successfully, otherwise 1.
 *********************************************************************/
-char ICP_sendFile(int pid, char *filename, char *directory, char *username, pthread_mutex_t *mutex) {
+char ICP_sendFile(int pid, char *filename, char *directory, char *username, semaphore *sem_queue, pthread_mutex_t *mutex) {
 	char *filename_path = NULL;
 	int file_size = 0;
 	int fd_file = FD_NOT_FOUND;
@@ -224,6 +224,8 @@ char ICP_sendFile(int pid, char *filename, char *directory, char *username, pthr
 	}
 
 	if (0 != sendFileFrames(&qfd, &filename_path, filename, &fd_file, username, file_size, mutex)) {
+		// close queue
+		mq_close(qfd);
 	    return (1);
 	}
 	
@@ -240,28 +242,52 @@ char ICP_sendFile(int pid, char *filename, char *directory, char *username, pthr
 		return (1);
 	}
 	
+	// wait for queue to be ready
+	SEM_wait(sem_queue);
 	// Receive the answer
-	/*message_recv = (char *) malloc((attr.mq_msgsize + 1) * sizeof(char));	//TODO: S'ha de crear un semafor de sincronitzacio (ho explico a iluvatarSon linia 488 aprox)
-	if(mq_receive(qfd, message_recv, attr.mq_msgsize, NULL) == -1) {	//Todo: Change the 8 to a constant (BÉ DEL FILE_OK O FILE_KO)
+	buffer = (char *) malloc((attr.mq_msgsize + 1) * sizeof(char));	//TODO: S'ha de crear un semafor de sincronitzacio (ho explico a iluvatarSon linia 488 aprox)
+	
+	if (mq_receive(qfd, buffer, attr.mq_msgsize, NULL) == -1) {
+		pthread_mutex_lock(mutex);
 		printMsg(COLOR_RED_TXT);
 		printMsg("ERROR: The message could not be received\n");
 		printMsg(COLOR_DEFAULT_TXT);
 		perror("woefdhaspfdc");
-		free(message_recv);
-		message_recv = NULL;
-		return (-1);
-	}*/
+		pthread_mutex_unlock(mutex);
+		free(buffer);
+		buffer = NULL;
+		// close queue
+		mq_close(qfd);
+		return (1);
+	}
 
-	/*if(0 == strcmp(message_recv, "FILE_OK")) {
+	//TODO: debug
+	pthread_mutex_lock(mutex);
+	printMsg("Received MQ: ");
+	printMsg(buffer);
+	printMsg("\n");
+	pthread_mutex_unlock(mutex);
+	//TODO: end
+
+	if (0 == strcmp(buffer, FILE_OK_REPLY)) {
+		pthread_mutex_lock(mutex);
 		printMsg("File correctly sent\n");
+		pthread_mutex_unlock(mutex);
 	} else {
+		pthread_mutex_lock(mutex);
 		printMsg(COLOR_RED_TXT);
 		printMsg("ERROR: The file sent has lost its integrity\n");
 		printMsg(COLOR_DEFAULT_TXT);
-		free(message_recv);
-		message_recv = NULL;
-		return (-1);
-	}*/
+		pthread_mutex_unlock(mutex);
+		free(buffer);
+		buffer = NULL;
+		// close queue
+		mq_close(qfd);
+		return (1);
+	}
+
+	free(buffer);
+	buffer = NULL;
 
 	// close queue
 	mq_close(qfd);
@@ -345,7 +371,7 @@ void parseInitialSendFileFrame(char *frame, char **origin_user, char **filename,
 * @Return: Returns the MD5SUM of the file.
 **********************************************************************/
 char readFileFrame(int file_fd, int qfd, char **frame, int msg_size, int file_size, pthread_mutex_t *mutex) {
-	*frame = (char *) malloc((msg_size + 1) * sizeof(char));	//TODO: S'hauria de canviar a la mida justa, però si li envio file_size + 1 peta el valgrind
+	*frame = (char *) malloc((msg_size + 1) * sizeof(char));
 
 	if (NULL == *frame) {
 	    return (ICP_READ_FRAME_ERROR);
@@ -444,7 +470,7 @@ char checkMD5Sum(char **path, char **filename, char **md5sum, char **user, pthre
 * @Return: Returns ICP_READ_FRAME_NO_ERROR if the file was received
 *          correctly, otherwise ICP_READ_FRAME_ERROR.
 **********************************************************************/
-char ICP_receiveFile(char **frame, char *directory, struct mq_attr *attr, int qfd, pthread_mutex_t *mutex) {
+char ICP_receiveFile(char **frame, char *directory, struct mq_attr *attr, int qfd, semaphore *sem_queue, pthread_mutex_t *mutex) {
 	char *origin_user = NULL;
 	char *filename = NULL;
 	char *filename_path = NULL;
@@ -461,24 +487,56 @@ char ICP_receiveFile(char **frame, char *directory, struct mq_attr *attr, int qf
 	while (file_size > ICP_FILE_MAX_BYTES) {
 		// Read the message
 		if (ICP_READ_FRAME_ERROR == readFileFrame(file_fd, qfd, frame, attr->mq_msgsize, ICP_FILE_MAX_BYTES, mutex)) {
+			// signal that queue is ready
+			SEM_signal(sem_queue);
 		    return (ICP_READ_FRAME_ERROR);
 		}
 
 		file_size -= ICP_FILE_MAX_BYTES;
 	}
 
-	// Read the last message
+	// Read the last frame
 	if (ICP_READ_FRAME_ERROR == readFileFrame(file_fd, qfd, frame, attr->mq_msgsize, file_size, mutex)) {
+		// signal that queue is ready
+		SEM_signal(sem_queue);
 	    return (ICP_READ_FRAME_ERROR);
 	}
 	
 	close(file_fd);
+	
 	// check md5sum
 	if (FILE_MD5SUM_OK == checkMD5Sum(&filename_path, &filename, &md5sum, &origin_user, mutex)) {
-	    // send reply of success
+		// send reply of success
+		if (mq_send(qfd, FILE_OK_REPLY, strlen(FILE_OK_REPLY) + 1,  0) == -1) {
+		    pthread_mutex_lock(mutex);
+			printMsg(COLOR_RED_TXT);
+			printMsg("ERROR: The message could not be sent\n");
+			printMsg(COLOR_DEFAULT_TXT);
+			pthread_mutex_unlock(mutex);
+			// signal that queue is ready
+			SEM_signal(sem_queue);
+			return (ICP_READ_FRAME_ERROR);
+		}
+	    
+		// signal that queue is ready
+		SEM_signal(sem_queue);
 	} else {
-	    // send reply of failure
+		// send reply of failure
+		if (mq_send(qfd, FILE_KO_REPLY, strlen(FILE_KO_REPLY) + 1,  0) == -1) {
+		    pthread_mutex_lock(mutex);
+			printMsg(COLOR_RED_TXT);
+			printMsg("ERROR: The message could not be sent\n");
+			printMsg(COLOR_DEFAULT_TXT);
+			pthread_mutex_unlock(mutex);
+			// signal that queue is ready
+			SEM_signal(sem_queue);
+			return (ICP_READ_FRAME_ERROR);
+		}
+
+	    // signal that queue is ready
+		SEM_signal(sem_queue);
 	}
+
 	//Sending a message to the origin user saying the md5sum verification result
 	//TODO: s'ha de crear un semàfor de sincronització per a que aquest missatge el rebi el que ha enviat el fitxer a commands.c, i no aquest, que l'ha rebut (ja que si descomento això i la rebuda a commands.c, el select d'aquí rep el missatge que he enviat aquí i no s'envia a qui li vull enviar)
 	/*if(mq_send(qfd, md5sum_verification, strlen(md5sum_verification) + 1,  0) == -1) {

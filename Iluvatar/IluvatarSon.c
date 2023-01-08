@@ -3,7 +3,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 07/01/2023
+* @Last change: 08/01/2023
 *********************************************************************/
 #define _GNU_SOURCE 1
 #include <stdio.h>
@@ -22,6 +22,7 @@
 #include "../gpc.h"
 #include "../icp.h"
 #include "../client.h"
+#include "../semaphore_v2.h"
 
 #define MIN_N_ARGS 					2
 #define WELCOME_MSG 				"\n%sWelcome %s, son of Iluvatar\n"
@@ -34,6 +35,8 @@ char *iluvatar_command = NULL;
 BidirectionalList users_list;
 Client client;
 Server server;
+semaphore sem_mq;			// synchronization semaphore to wait for qfd answers when frame sent
+//semaphore sem_fd_mq;		// mutual exclusion semaphore to prevent accessing qfd at same time
 mqd_t qfd;
 pthread_t thread_accept;
 pthread_mutex_t mutex_print = PTHREAD_MUTEX_INITIALIZER;
@@ -55,6 +58,13 @@ void disconnectionManager(){
 	mq_close(qfd);
 	asprintf(&buffer, "/%d", getpid());
 	mq_unlink(buffer);
+
+	// destroy semaphore
+	if (1 <= BIDIRECTIONALLIST_getNumberOfElements(users_list)) {
+	    SEM_destructor(&sem_mq);
+//		SEM_destructor(&sem_fd_mq);
+	}
+	
 	// free memory
 	free(buffer);
 	buffer = NULL;
@@ -109,6 +119,19 @@ IluvatarSon newIluvatarSon() {
 	iluvatar.arda_ip_address = NULL;
 
 	return (iluvatar);
+}
+
+/*********************************************************************
+* @Purpose: Initializes semaphores if only 1 user.
+* @Params: ----
+* @Return: ----
+*********************************************************************/
+void initSemaphores() {
+    // check number of users
+	if (1 <= BIDIRECTIONALLIST_getNumberOfElements(users_list)) {
+	    SEM_init(&sem_mq, 0);
+//		SEM_init(&sem_fd_mq, 1);
+	}
 }
 
 /*********************************************************************
@@ -178,7 +201,7 @@ char connectToArda() {
 		printMsg(COLOR_DEFAULT_TXT);
 
 		// Writing the exit frame
-		if(iluvatarSon.username != NULL) {
+		if (iluvatarSon.username != NULL) {
 			GPC_writeFrame(client.server_fd, 0x06, GPC_EXIT_HEADER, iluvatarSon.username, strlen(iluvatarSon.username));
 		}
 
@@ -246,7 +269,7 @@ int manageUserPrompt() {
 	
 	// execute command
 	if (NULL != iluvatar_command) {
-		is_exit = COMMANDS_executeCommand(iluvatar_command, &iluvatarSon, client.server_fd, &users_list, &mutex_print);
+		is_exit = COMMANDS_executeCommand(iluvatar_command, &iluvatarSon, client.server_fd, &users_list, &sem_mq, &mutex_print);
 		free(iluvatar_command);
 		iluvatar_command = NULL;
 	}
@@ -267,6 +290,7 @@ char getLocalFrame(struct mq_attr *attr) {
 	char *frame = NULL;
 	char *type = NULL;
 	char *buffer = NULL;
+	int n = 0;
 
 	// reset command line
 	pthread_mutex_lock(&mutex_print);
@@ -274,8 +298,9 @@ char getLocalFrame(struct mq_attr *attr) {
 	pthread_mutex_unlock(&mutex_print);
 	// get ICP frame
 	frame = (char *) malloc((attr->mq_msgsize + 1) * sizeof(char));
+	n = mq_receive(qfd, frame, attr->mq_msgsize, NULL);
 		
-	if (mq_receive(qfd, frame, attr->mq_msgsize, NULL) == -1) {
+	if (-1 == n) {
 		pthread_mutex_lock(&mutex_print);
 		printMsg(COLOR_RED_TXT);
 		printMsg(ERROR_RECEIVING_MSG_MSG);
@@ -294,8 +319,21 @@ char getLocalFrame(struct mq_attr *attr) {
 			ICP_receiveMsg(frame, &mutex_print);
 		} else if (strcmp(type, "file") == 0) {
 			// save received file
-			if (ICP_READ_FRAME_ERROR == ICP_receiveFile(&frame, iluvatarSon.directory, attr, qfd, &mutex_print)) {
-			    return (1);
+			if (ICP_READ_FRAME_ERROR == ICP_receiveFile(&frame, iluvatarSon.directory, attr, qfd, &sem_mq, &mutex_print)) {
+			    // free memory
+				if (NULL != frame) {
+				    free(frame);
+				    frame = NULL;
+				}
+				
+				if (NULL != buffer) {
+				    free(buffer);
+				    buffer = NULL;
+				}
+
+				// reopen command line
+				openCLI();
+				return (1);
 			}
 		} else {
 			pthread_mutex_lock(&mutex_print);
@@ -339,6 +377,9 @@ int main(int argc, char* argv[]) {
 	iluvatarSon = newIluvatarSon();
 	// Configure SIGINT
 	signal(SIGINT, sigintHandler);
+	// Init synchronization semaphore for message queue
+	SEM_constructor_with_name(&sem_mq, ftok("IluvatarSon.c", 'a'));
+//	SEM_constructor_with_name(&sem_fd_mq, ftok("IluvatarSon.c", 'b'));
 
 	// check args
 	if (MIN_N_ARGS != argc) {
@@ -381,7 +422,8 @@ int main(int argc, char* argv[]) {
 		if (0 != connectToArda()) {
 			return (-1);
 		}
-		
+
+		initSemaphores();
 		// Open passive socket (prepare Iluvatar server)
 		server = SERVER_init(iluvatarSon.ip_address, iluvatarSon.port);
 
@@ -461,9 +503,16 @@ int main(int argc, char* argv[]) {
 			} else if (FD_ISSET(STDIN_FILENO, &read_fds)) {
 				// reads and executes the command, then prepares the prompt for next command
 				exit_program = manageUserPrompt();
-			} else if (FD_ISSET(qfd, &read_fds)) {
-				// received message or file from another Iluvatar in same machine
-				exit_program = getLocalFrame(&attr);
+			} else {
+			    // mutual exclusion		//TODO: probably unnecessary, debugging purposes
+//				SEM_wait(&sem_fd_mq);
+
+				if (FD_ISSET(qfd, &read_fds)) {
+				    // received message or file from another Iluvatar in same machine
+					exit_program = getLocalFrame(&attr);
+				}
+
+//				SEM_signal(&sem_fd_mq); //TODO: debugging purposes
 			}
 
 			if (header != NULL) {

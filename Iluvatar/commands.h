@@ -19,6 +19,7 @@
 #include "../icp.h"
 #include "../server.h"
 #include "../client.h"
+#include "../semaphore_v2.h"
 
 /* CUSTOM COMMANDS */
 #define UPDATE_USERS_CMD		"UPDATE USERS\0"
@@ -74,6 +75,6 @@
 *		   in: fd_arda = Arda's file descriptor (connected to server)
 * @Return: 0 if EXIT command entered, otherwise 1.
 *********************************************************************/
-int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda, BidirectionalList *users_list, pthread_mutex_t *mutex);
+int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda, BidirectionalList *users_list, semaphore *sem_mq, pthread_mutex_t *mutex);
 
 #endif
