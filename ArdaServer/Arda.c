@@ -2,8 +2,8 @@
 * @Purpose: Runs the server for the sons of Iluvatar.
 * @Authors: Angel Garcia Gascon
 *           Claudia Lajara Silvosa
-* @Date:
-* @Last change: 11/12/2022
+* @Date: 30/10/2022
+* @Last change: 09/01/2023
 *********************************************************************/
 #define _GNU_SOURCE 1 
 #include <stdio.h>

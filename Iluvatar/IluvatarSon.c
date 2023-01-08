@@ -3,7 +3,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 08/01/2023
+* @Last change: 09/01/2023
 *********************************************************************/
 #define _GNU_SOURCE 1
 #include <stdio.h>
@@ -425,12 +425,8 @@ int main(int argc, char* argv[]) {
 			// free memory and close FDs
 			SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
 			BIDIRECTIONALLIST_destroy(&users_list);
-			free(server.thread);
-			server.thread = NULL;
-			close(server.listen_fd);
-			closeAllClientFDs(&server);
+			SERVER_close(&server);
 			close(client.server_fd);
-			BIDIRECTIONALLIST_destroy(&server.clients);
 			return (-1);
 		}
 

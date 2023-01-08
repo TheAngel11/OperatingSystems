@@ -4,7 +4,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 10/12/2022
-* @Last change: 07/01/2023
+* @Last change: 09/01/2023
 *********************************************************************/
 #include "server.h"
 
@@ -25,6 +25,7 @@ Server SERVER_init(char *ip, int port) {
 	s.n_threads = 0;
 	pthread_mutex_init(&s.mutex, NULL);
 	pthread_mutex_init(&s.client_fd_mutex, NULL);
+	s.mutex_print = NULL;
 	s.n_clients = 0;
 
     // Creating the server socket
@@ -747,5 +748,8 @@ void SERVER_close(Server *server) {
 	pthread_mutex_unlock(&server->mutex);
 	pthread_mutex_destroy(&server->mutex);
 	pthread_mutex_destroy(&server->client_fd_mutex);
+	
+	if (NULL != server->mutex_print) {
 	pthread_mutex_destroy(server->mutex_print);
+	}
 }
