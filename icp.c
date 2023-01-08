@@ -41,7 +41,7 @@ char ICP_sendMsg(int pid, char *message, char *origin_username, pthread_mutex_t 
 	if (mq_send(qfd, buffer, strlen(buffer) + 1, 0) == -1) {
 		pthread_mutex_lock(mutex);
 		printMsg(COLOR_RED_TXT);
-		printMsg("ERROR: The message could not be sent\n");
+		printMsg(SEND_MSG_MQ_ERROR);
 		printMsg(COLOR_DEFAULT_TXT);
 		pthread_mutex_unlock(mutex);
 		// free memory
@@ -54,7 +54,7 @@ char ICP_sendMsg(int pid, char *message, char *origin_username, pthread_mutex_t 
 		return (1);
 	} else {
 		pthread_mutex_lock(mutex);
-		printMsg("Message correctly sent\n"); 
+		printMsg(SEND_MSG_OK_MSG); 
 		pthread_mutex_unlock(mutex);
 	}
 					
@@ -70,7 +70,99 @@ char ICP_sendMsg(int pid, char *message, char *origin_username, pthread_mutex_t 
 
 /*********************************************************************
 * @Purpose: Sends a file to a user using message queues.
-* @Params: in: qfd = message queue file descriptor
+* @Params: in/out: qfd = file descriptor of the message queue
+* 		   in/out: path = path of the file to send
+* 		   in: filename = name of the file to send
+* 		   in/out: fd_file = file descriptor of the file to send
+* 		   in: username = string containing the name of the sender
+* 		   in: file_size = size of the file to send
+*          in/out: mutex = screen mutex to prevent writing to screen
+*                  simultaneously
+* @Return: Returns 0 if the file was sent successfully, otherwise 1.
+*********************************************************************/
+char sendFileFrames(mqd_t *qfd, char **path, char *filename, int *fd_file, char *username, int file_size, pthread_mutex_t *mutex) {
+	char *md5sum = NULL;
+	char *buffer = NULL;
+
+	// Get the MD5SUM
+	md5sum = SHAREDFUNCTIONS_getMD5Sum(*path);
+	// Prepare the message to send
+	asprintf(&buffer, "file%c%s%c%s%c%d%c%s", ICP_DATA_SEPARATOR, username, ICP_DATA_SEPARATOR, filename, ICP_DATA_SEPARATOR, file_size, ICP_DATA_SEPARATOR, md5sum);
+	free(*path);
+	*path = NULL;
+	free(md5sum);
+	md5sum = NULL;
+	
+	// Send the file info message
+	if (mq_send(*qfd, buffer, strlen(buffer) + 1, 0) == -1) {
+		pthread_mutex_lock(mutex);
+		printMsg(COLOR_RED_TXT);
+		printMsg(SEND_FILE_MQ_ERROR);
+		printMsg(COLOR_DEFAULT_TXT);
+		pthread_mutex_unlock(mutex);
+		// free memory
+		free(buffer);
+		buffer = NULL;
+		// close queue
+		mq_close(*qfd);
+		close(*fd_file);
+		return (1);
+	}
+
+	free(buffer);
+	buffer = NULL;
+
+	// Send the file in fragments if bigger than ICP_FILE_MAX_BYTES
+	while (file_size > ICP_FILE_MAX_BYTES) {
+		buffer = (char *) malloc(sizeof(char) * ICP_FILE_MAX_BYTES);
+		read(*fd_file, buffer, ICP_FILE_MAX_BYTES);
+		
+		if (mq_send(*qfd, buffer, ICP_FILE_MAX_BYTES, 0) == -1) {
+		    pthread_mutex_lock(mutex);
+			printMsg(COLOR_RED_TXT);
+			printMsg(SEND_FILE_MQ_ERROR);
+			printMsg(COLOR_DEFAULT_TXT);
+			pthread_mutex_unlock(mutex);
+			free(buffer);
+			buffer = NULL;
+			// close queue
+			mq_close(*qfd);
+			close(*fd_file);
+			return (1);
+		}
+		
+		free(buffer);
+		buffer = NULL;
+		file_size -= ICP_FILE_MAX_BYTES;
+	}
+	
+	// Send the last part of the file
+	buffer = (char *) malloc(sizeof(char) * file_size);
+	read(*fd_file, buffer, file_size);
+
+	if (mq_send(*qfd, buffer, file_size, 0) == -1) {
+		pthread_mutex_lock(mutex);
+		printMsg(COLOR_RED_TXT);
+		printMsg(SEND_FILE_MQ_ERROR);
+		printMsg(COLOR_DEFAULT_TXT);
+		pthread_mutex_unlock(mutex);
+		free(buffer);
+		buffer = NULL;
+		// close queue
+		mq_close(*qfd);
+		close(*fd_file);
+		return (1);
+	}
+
+	free(buffer);
+	buffer = NULL;
+	close(*fd_file);
+	return (0);
+}
+
+/*********************************************************************
+* @Purpose: Sends a file to a user using message queues.
+* @Params: in: pid = PID of the user that will receive the file
 * 		   in: filename = name of the file to send
 * 		   in: directory = string with the directory of the file
 * 		   in: username = string containing the name of the sender
@@ -78,16 +170,20 @@ char ICP_sendMsg(int pid, char *message, char *origin_username, pthread_mutex_t 
 *                  simultaneously
 * @Return: Returns 0 if the file was sent successfully, otherwise 1.
 *********************************************************************/
-char ICP_sendFile(mqd_t qfd, char *filename, char *directory, char *username, pthread_mutex_t *mutex) {
+char ICP_sendFile(int pid, char *filename, char *directory, char *username, pthread_mutex_t *mutex) {
 	char *filename_path = NULL;
 	int file_size = 0;
-	char *md5sum = NULL;
-//	char *message_send = NULL;
-//	char *message_recv = NULL;
 	int fd_file = FD_NOT_FOUND;
+	mqd_t qfd;
 	struct mq_attr attr;
 	char *buffer = NULL;
 
+	// open queue
+	asprintf(&buffer, "/%d", pid);
+	qfd = mq_open(buffer, O_RDWR);
+	free(buffer);
+	buffer = NULL;
+	// open the file to send
 	asprintf(&filename_path, ".%s/%s", directory, filename);
 	fd_file = open(filename_path, O_RDONLY);
 
@@ -104,6 +200,8 @@ char ICP_sendFile(mqd_t qfd, char *filename, char *directory, char *username, pt
 		buffer = NULL;
 		free(filename_path);
 		filename_path = NULL;
+		// close queue
+		mq_close(qfd);
 		return (1);
 	}
 
@@ -120,82 +218,25 @@ char ICP_sendFile(mqd_t qfd, char *filename, char *directory, char *username, pt
 		// free memory
 		free(filename_path);
 		filename_path = NULL;
+		// close queue
+		mq_close(qfd);
 		return (1);
 	}
 
-	// Get the MD5SUM
-	md5sum = SHAREDFUNCTIONS_getMD5Sum(filename_path);
-	// Prepare the message to send
-	asprintf(&buffer, "file%c%s%c%s%c%d%c%s", ICP_DATA_SEPARATOR, username, ICP_DATA_SEPARATOR, filename, ICP_DATA_SEPARATOR, file_size, ICP_DATA_SEPARATOR, md5sum);
-	free(filename_path);
-	filename_path = NULL;
-	free(md5sum);
-	md5sum = NULL;
-	
-	// Send the file info message
-	if (mq_send(qfd, buffer, strlen(buffer) + 1, 0) == -1) {
-		pthread_mutex_lock(mutex);
-		printMsg(COLOR_RED_TXT);
-		printMsg(SEND_FILE_MQ_ERROR);
-		printMsg(COLOR_DEFAULT_TXT);
-		pthread_mutex_unlock(mutex);
-		// free memory
-		free(buffer);
-		buffer = NULL;
-		return (1);
+	if (0 != sendFileFrames(&qfd, &filename_path, filename, &fd_file, username, file_size, mutex)) {
+	    return (1);
 	}
-
-	free(buffer);
-	buffer = NULL;
-
-	// Send the file in fragments if bigger than ICP_FILE_MAX_BYTES
-	while (file_size > ICP_FILE_MAX_BYTES) {
-		buffer = (char *) malloc(sizeof(char) * ICP_FILE_MAX_BYTES);
-		read(fd_file, buffer, ICP_FILE_MAX_BYTES);
-		
-		if (mq_send(qfd, buffer, ICP_FILE_MAX_BYTES, 0) == -1) {
-		    pthread_mutex_lock(mutex);
-			printMsg(COLOR_RED_TXT);
-			printMsg(SEND_FILE_MQ_ERROR);
-			printMsg(COLOR_DEFAULT_TXT);
-			pthread_mutex_unlock(mutex);
-			free(buffer);
-			buffer = NULL;
-			return (1);
-		}
-		
-		free(buffer);
-		buffer = NULL;
-		file_size -= ICP_FILE_MAX_BYTES;
-	}
-	
-	// Send the last part of the file
-	buffer = (char *) malloc(sizeof(char) * file_size);
-	read(fd_file, buffer, file_size);
-
-	if (mq_send(qfd, buffer, file_size, 0) == -1) {
-		pthread_mutex_lock(mutex);
-		printMsg(COLOR_RED_TXT);
-		printMsg(SEND_FILE_MQ_ERROR);
-		printMsg(COLOR_DEFAULT_TXT);
-		pthread_mutex_unlock(mutex);
-		free(buffer);
-		buffer = NULL;
-		return (1);
-	}
-
-	free(buffer);
-	buffer = NULL;
-	close(fd_file);
 	
 	// get the attributes of the queue
 	if (mq_getattr(qfd, &attr) == -1) {
 		pthread_mutex_lock(mutex);
 		printMsg(COLOR_RED_TXT);
-		printMsg("ERROR: The attributes of the queue could not be obtained\n");
+		printMsg(MQ_ATTR_ERROR_MSG);
 		printMsg(COLOR_DEFAULT_TXT);
 		pthread_mutex_unlock(mutex);
 		perror("mq_getattr");
+		// close queue
+		mq_close(qfd);
 		return (1);
 	}
 	
@@ -222,16 +263,8 @@ char ICP_sendFile(mqd_t qfd, char *filename, char *directory, char *username, pt
 		return (-1);
 	}*/
 
-//	if (message_recv != NULL) {
-//		free(message_recv);
-//		message_recv = NULL;
-//	}
-
-//	if (message_send != NULL) {
-//		free(message_send);
-//		message_send = NULL;
-//	}
-	
+	// close queue
+	mq_close(qfd);
 	return (0);
 }
 

@@ -3,7 +3,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 11/12/2022
-* @Last change: 07/01/2023
+* @Last change: 08/01/2023
 *********************************************************************/
 #include "gpc.h"
 
@@ -200,17 +200,19 @@ char GPC_updateUsersList(BidirectionalList *list, char *users) {
 }
 
 /**********************************************************************
- * @Purpose: Given the data of a send file frame, finds the origin user, the filename,
- * 		 	 the file size and the MD5SUM
- * @Params: in/out: data = the data of a send file frame
- * 		    in/out: origin_user = the user who sends the file
- * 		    in/out: filename = the name of the file that the origin user sends
- * 		    in/out: file_size = the size of the file that the origin user sends
- * 		    in/out: md5sum = the MD5SUM of the file that the origin user sends
- **********************************************************************/
+* @Purpose: Given the data of a SEND FILE frame, gets the origin user,
+*           the filename, the sizeo fo the file and the MD5SUM.
+* @Params: in/out: data = the data of a send file frame
+* 		    in/out: origin_user = the user who sends the file
+* 		    in/out: filename = the name of the file that the origin user sends
+* 		    in/out: file_size = the size of the file that the origin user sends
+* 		    in/out: md5sum = the MD5SUM of the file that the origin user sends
+* @Return: ----
+**********************************************************************/
 void GPC_parseSendFileInfo(char *data, char **origin_user, char **filename, int *file_size, char **md5sum) {
 	int i = 0;
 	char *file_size_str = NULL;
+
 	//data is in the format: originUser + GPC_DATA_SEPARATOR + filename + GPC_DATA_SEPARATOR + file_size + GPC_DATA_SEPARATOR + md5sum
 	*origin_user = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
 	*filename = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
@@ -221,14 +223,16 @@ void GPC_parseSendFileInfo(char *data, char **origin_user, char **filename, int 
 }
 
 /**********************************************************************
-* @Purpose: Given the data of a send message frame, finds the origin user and the message
+* @Purpose: Given the data of a SEND MSG frame, gets the origin user
+*           and the message.
 * @Params: in/out: data = the user who sends the message
 * 		   in/out: origin_user = the user who sends the message
 *		   in/out: message = the message that the origin user sends
-* @Return: Returns 1.
+* @Return: ----
 **********************************************************************/
 void GPC_parseSendMessage(char *data, char **origin_user, char **message) {
 	int i = 0;
+	
 	//data is in the format: originUser + GPC_DATA_SEPARATOR + message
 	*origin_user = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);
 	*message = SHAREDFUNCTIONS_splitString(data, GPC_DATA_SEPARATOR, &i);

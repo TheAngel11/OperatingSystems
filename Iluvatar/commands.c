@@ -4,7 +4,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 07/01/2023
+* @Last change: 08/01/2023
 *********************************************************************/
 #include "commands.h"
 
@@ -532,7 +532,6 @@ char sendMsgCommand(BidirectionalList clients, char *dest_username, char *messag
 *********************************************************************/
 void sendFileCommand(BidirectionalList clients, char *dest_username, char *file, char *directory, char *origin_username, char *origin_ip, pthread_mutex_t *mutex) {
 	Element e;
-	mqd_t qfd;
 	char *buffer = NULL;
 
 	// search destination user
@@ -575,20 +574,9 @@ void sendFileCommand(BidirectionalList clients, char *dest_username, char *file,
 			free(e.username);
 			e.username = NULL;
 			free(e.ip_network);
-			e.ip_network = NULL;
-			// open queue
-			asprintf(&buffer, "/%d", e.pid);
-			qfd = mq_open(buffer, O_RDWR);
-			free(buffer);
-			buffer = NULL;
-			
+			e.ip_network = NULL;	
 			// send file
-			if (0 != ICP_sendFile(qfd, file, directory, origin_username, mutex)) {
-			    mq_close(qfd);
-				return;
-			}
-
-			mq_close(qfd);
+			ICP_sendFile(e.pid, file, directory, origin_username, mutex);
 		}
 	} else {
 	    // show error message for unfound user
