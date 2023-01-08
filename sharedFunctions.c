@@ -23,20 +23,28 @@ char * SHAREDFUNCTIONS_readUntil(int fd, char delimiter) {
 	while ((byte != delimiter) && (n != 0)) {
 		n = read(fd, &byte, 1);
 		if ((byte != delimiter) && (n != 0)) {
+		    if (-1 == n) {
+			    return (NULL);
+			}
+
 		    if (NULL == buffer) {
 			    buffer = (char *) malloc (sizeof(char));
 			}
+
 			buffer[i] = byte;
 			i++;
 			buffer = (char *) realloc (buffer, sizeof(char) * (i + 1));
 		}
 	}
 
-	if(i == 0) {
-		return NULL;
+	if (i == 0) {
+		return (NULL);
 	}
 
-	buffer[i] = '\0';
+	if (NULL != buffer) {
+	    buffer[i] = '\0';
+	}
+
 	return (buffer);
 }
 

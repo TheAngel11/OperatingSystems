@@ -401,6 +401,9 @@ int main(int argc, char* argv[]) {
 		}
 
 		if (0 != connectToArda()) {
+			SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
+			close(client.server_fd);
+			BIDIRECTIONALLIST_destroy(&users_list);
 			return (-1);
 		}
 
@@ -419,13 +422,14 @@ int main(int argc, char* argv[]) {
 			printMsg(COLOR_RED_TXT);
 			printMsg(ERROR_CREATING_THREAD_MSG);
 			printMsg(COLOR_DEFAULT_TXT);
-			// free memory
+			// free memory and close FDs
 			SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
+			BIDIRECTIONALLIST_destroy(&users_list);
 			free(server.thread);
 			server.thread = NULL;
-			// close FDs
 			close(server.listen_fd);
 			closeAllClientFDs(&server);
+			close(client.server_fd);
 			BIDIRECTIONALLIST_destroy(&server.clients);
 			return (-1);
 		}
@@ -483,16 +487,9 @@ int main(int argc, char* argv[]) {
 			} else if (FD_ISSET(STDIN_FILENO, &read_fds)) {
 				// reads and executes the command, then prepares the prompt for next command
 				exit_program = manageUserPrompt();
-			} else {
-			    // mutual exclusion		//TODO: probably unnecessary, debugging purposes
-//				SEM_wait(&sem_fd_mq);
-
-				if (FD_ISSET(qfd, &read_fds)) {
-				    // received message or file from another Iluvatar in same machine
-					exit_program = getLocalFrame(&attr);
-				}
-
-//				SEM_signal(&sem_fd_mq); //TODO: debugging purposes
+			} else if (FD_ISSET(qfd, &read_fds)) {
+				// received message or file from another Iluvatar in same machine
+				exit_program = getLocalFrame(&attr);
 			}
 
 			if (header != NULL) {

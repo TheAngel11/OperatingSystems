@@ -276,6 +276,7 @@ void *ardaClient(void *args) {
     char *data = NULL;
 	int client_fd = s->client_fd;
 	int index_thread = s->n_threads - 1;
+	
 	pthread_mutex_unlock(&s->client_fd_mutex);
 
     while (1) {
