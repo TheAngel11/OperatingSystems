@@ -11,8 +11,9 @@
 #include "bidirectionallist.h" 
 
 /* Constants */
-#define READ_FILE_OK             0
-#define READ_FILE_KO             -1
+#define READ_FILE_OK 	0
+#define READ_FILE_KO 	-1
+#define FD_NOT_FOUND 	-1
 
 #define printMsg(x) write(1, x, strlen(x)) 
 

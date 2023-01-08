@@ -4,9 +4,236 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 04/01/2023
-* @Last change: 05/01/2023
+* @Last change: 08/01/2023
 *********************************************************************/
 #include "icp.h"
+
+/*********************************************************************
+* @Purpose: Sends a message to a user using message queues.
+* @Params: in: pid = PID of the user that will receive the message
+* 		   in: message = string containing the message to send
+* 		   in: origin_username = string with the name of the sender
+*          in/out: mutex = screen mutex to prevent writing to screen
+*                  simultaneously
+* @Return: Returns 0 if message was sent successfully, otherwise 1.
+*********************************************************************/
+char ICP_sendMsg(int pid, char *message, char *origin_username, pthread_mutex_t *mutex) {
+	mqd_t qfd;
+	char *buffer = NULL;
+
+	// open queue
+	asprintf(&buffer, "/%d", pid);
+	qfd = mq_open(buffer, O_RDWR);
+	free(buffer);
+	buffer = NULL;
+			
+	// check message not empty
+	if (strlen(message) == 2) {
+	    // invalid message
+		mq_close(qfd);
+		return (1);
+	}
+			
+	// prepare data for frame
+	asprintf(&buffer, "msg%c%s%c%s", ICP_DATA_SEPARATOR, origin_username, ICP_DATA_SEPARATOR, message);
+
+	// send message
+	if (mq_send(qfd, buffer, strlen(buffer) + 1, 0) == -1) {
+		pthread_mutex_lock(mutex);
+		printMsg(COLOR_RED_TXT);
+		printMsg("ERROR: The message could not be sent\n");
+		printMsg(COLOR_DEFAULT_TXT);
+		pthread_mutex_unlock(mutex);
+		// free memory
+		if (NULL != buffer) {
+	        free(buffer);
+			buffer = NULL;
+		}
+
+		mq_close(qfd);
+		return (1);
+	} else {
+		pthread_mutex_lock(mutex);
+		printMsg("Message correctly sent\n"); 
+		pthread_mutex_unlock(mutex);
+	}
+					
+	// free memory
+	if (NULL != buffer) {
+	    free(buffer);
+		buffer = NULL;
+	}
+
+	mq_close(qfd);
+	return (0);
+}
+
+/*********************************************************************
+* @Purpose: Sends a file to a user using message queues.
+* @Params: in: qfd = message queue file descriptor
+* 		   in: filename = name of the file to send
+* 		   in: directory = string with the directory of the file
+* 		   in: username = string containing the name of the sender
+*          in/out: mutex = screen mutex to prevent writing to screen
+*                  simultaneously
+* @Return: Returns 0 if the file was sent successfully, otherwise 1.
+*********************************************************************/
+char ICP_sendFile(mqd_t qfd, char *filename, char *directory, char *username, pthread_mutex_t *mutex) {
+	char *filename_path = NULL;
+	int file_size = 0;
+	char *md5sum = NULL;
+//	char *message_send = NULL;
+//	char *message_recv = NULL;
+	int fd_file = FD_NOT_FOUND;
+	struct mq_attr attr;
+	char *buffer = NULL;
+
+	asprintf(&filename_path, ".%s/%s", directory, filename);
+	fd_file = open(filename_path, O_RDONLY);
+
+	// check file FD
+	if (fd_file == FD_NOT_FOUND) {
+		asprintf(&buffer, SEND_FILE_OPEN_FILE_ERROR, filename);
+		pthread_mutex_lock(mutex);
+		printMsg(COLOR_RED_TXT);
+		printMsg(buffer);
+		printMsg(COLOR_DEFAULT_TXT);
+		pthread_mutex_unlock(mutex);
+		// free memory
+		free(buffer);
+		buffer = NULL;
+		free(filename_path);
+		filename_path = NULL;
+		return (1);
+	}
+
+	// get file size
+	file_size = (int) lseek(fd_file, 0, SEEK_END);
+	lseek(fd_file, 0, SEEK_SET);
+	
+	if (file_size == 0) {
+		pthread_mutex_lock(mutex);
+		printMsg(COLOR_RED_TXT);
+		printMsg(SEND_FILE_EMPTY_FILE_ERROR);
+		printMsg(COLOR_DEFAULT_TXT);
+		pthread_mutex_unlock(mutex);
+		// free memory
+		free(filename_path);
+		filename_path = NULL;
+		return (1);
+	}
+
+	// Get the MD5SUM
+	md5sum = SHAREDFUNCTIONS_getMD5Sum(filename_path);
+	// Prepare the message to send
+	asprintf(&buffer, "file%c%s%c%s%c%d%c%s", ICP_DATA_SEPARATOR, username, ICP_DATA_SEPARATOR, filename, ICP_DATA_SEPARATOR, file_size, ICP_DATA_SEPARATOR, md5sum);
+	free(filename_path);
+	filename_path = NULL;
+	free(md5sum);
+	md5sum = NULL;
+	
+	// Send the file info message
+	if (mq_send(qfd, buffer, strlen(buffer) + 1, 0) == -1) {
+		pthread_mutex_lock(mutex);
+		printMsg(COLOR_RED_TXT);
+		printMsg(SEND_FILE_MQ_ERROR);
+		printMsg(COLOR_DEFAULT_TXT);
+		pthread_mutex_unlock(mutex);
+		// free memory
+		free(buffer);
+		buffer = NULL;
+		return (1);
+	}
+
+	free(buffer);
+	buffer = NULL;
+
+	// Send the file in fragments if bigger than ICP_FILE_MAX_BYTES
+	while (file_size > ICP_FILE_MAX_BYTES) {
+		buffer = (char *) malloc(sizeof(char) * ICP_FILE_MAX_BYTES);
+		read(fd_file, buffer, ICP_FILE_MAX_BYTES);
+		
+		if (mq_send(qfd, buffer, ICP_FILE_MAX_BYTES, 0) == -1) {
+		    pthread_mutex_lock(mutex);
+			printMsg(COLOR_RED_TXT);
+			printMsg(SEND_FILE_MQ_ERROR);
+			printMsg(COLOR_DEFAULT_TXT);
+			pthread_mutex_unlock(mutex);
+			free(buffer);
+			buffer = NULL;
+			return (1);
+		}
+		
+		free(buffer);
+		buffer = NULL;
+		file_size -= ICP_FILE_MAX_BYTES;
+	}
+	
+	// Send the last part of the file
+	buffer = (char *) malloc(sizeof(char) * file_size);
+	read(fd_file, buffer, file_size);
+
+	if (mq_send(qfd, buffer, file_size, 0) == -1) {
+		pthread_mutex_lock(mutex);
+		printMsg(COLOR_RED_TXT);
+		printMsg(SEND_FILE_MQ_ERROR);
+		printMsg(COLOR_DEFAULT_TXT);
+		pthread_mutex_unlock(mutex);
+		free(buffer);
+		buffer = NULL;
+		return (1);
+	}
+
+	free(buffer);
+	buffer = NULL;
+	close(fd_file);
+	
+	// get the attributes of the queue
+	if (mq_getattr(qfd, &attr) == -1) {
+		pthread_mutex_lock(mutex);
+		printMsg(COLOR_RED_TXT);
+		printMsg("ERROR: The attributes of the queue could not be obtained\n");
+		printMsg(COLOR_DEFAULT_TXT);
+		pthread_mutex_unlock(mutex);
+		perror("mq_getattr");
+		return (1);
+	}
+	
+	// Receive the answer
+	/*message_recv = (char *) malloc((attr.mq_msgsize + 1) * sizeof(char));	//TODO: S'ha de crear un semafor de sincronitzacio (ho explico a iluvatarSon linia 488 aprox)
+	if(mq_receive(qfd, message_recv, attr.mq_msgsize, NULL) == -1) {	//Todo: Change the 8 to a constant (BÉ DEL FILE_OK O FILE_KO)
+		printMsg(COLOR_RED_TXT);
+		printMsg("ERROR: The message could not be received\n");
+		printMsg(COLOR_DEFAULT_TXT);
+		perror("woefdhaspfdc");
+		free(message_recv);
+		message_recv = NULL;
+		return (-1);
+	}*/
+
+	/*if(0 == strcmp(message_recv, "FILE_OK")) {
+		printMsg("File correctly sent\n");
+	} else {
+		printMsg(COLOR_RED_TXT);
+		printMsg("ERROR: The file sent has lost its integrity\n");
+		printMsg(COLOR_DEFAULT_TXT);
+		free(message_recv);
+		message_recv = NULL;
+		return (-1);
+	}*/
+
+//	if (message_recv != NULL) {
+//		free(message_recv);
+//		message_recv = NULL;
+//	}
+
+//	if (message_send != NULL) {
+//		free(message_send);
+//		message_send = NULL;
+//	}
+	
+	return (0);
+}
 
 /**********************************************************************
 * @Purpose: Receives a message from another process in the same machine

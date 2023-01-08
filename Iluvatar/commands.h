@@ -30,16 +30,18 @@
 #define CMD_MSG_SEPARATOR		'"'
 
 /* Messages */
-#define UNKNOWN_CMD_MSG				"Unknown command\n"
-#define ERROR_SEND_MSG_FORMAT		"ERROR: Missing message separators (\")\n"
-#define ERROR_SEND_MSG_LESS_ARGS	"ERROR: \"SEND MSG\" requires a user and a message\n"
-#define ERROR_SEND_MSG_MORE_ARGS	"ERROR: \"SEND MSG\" has too many arguments\n"
-#define ERROR_SEND_FILE_LESS_ARGS	"ERROR: \"SEND FILE\" requires a user and a file\n"
-#define ERROR_SEND_FILE_MORE_ARGS	"ERROR: \"SEND FILE\" has too many arguments\n"
-#define UPDATE_USERS_SUCCESS_MSG	"Users list updated\n"
-#define LIST_USERS_N_USERS_MSG 		"There are %d children of Iluvatar connected:\n"
-#define SEND_MSG_ERROR_SAME_USER	"ERROR: You cannot send a message to yourself\n"
-#define USER_NOT_FOUND_ERROR_MSG	"ERROR: %s was not found. Try updating the list of users\n"
+#define UNKNOWN_CMD_MSG					"Unknown command\n"
+#define ERROR_SEND_MSG_FORMAT			"ERROR: Missing message separators (\")\n"
+#define ERROR_SEND_MSG_LESS_ARGS		"ERROR: \"SEND MSG\" requires a user and a message\n"
+#define ERROR_SEND_MSG_MORE_ARGS		"ERROR: \"SEND MSG\" has too many arguments\n"
+#define ERROR_SEND_FILE_LESS_ARGS		"ERROR: \"SEND FILE\" requires a user and a file\n"
+#define ERROR_SEND_FILE_MORE_ARGS		"ERROR: \"SEND FILE\" has too many arguments\n"
+#define UPDATE_USERS_SUCCESS_MSG		"Users list updated\n"
+#define LIST_USERS_N_USERS_MSG 			"There are %d children of Iluvatar connected:\n"
+#define SEND_MSG_ERROR_SAME_USER		"ERROR: You cannot send a message to yourself\n"
+#define SEND_MSG_INVALID_MSG_ERROR		"ERROR: Message cannot be empty\n"
+#define USER_NOT_FOUND_ERROR_MSG		"ERROR: %s was not found. Try updating the list of users\n"
+#define SEND_FILE_INVALID_FILE_ERROR 	"ERROR: File could not be sent due to an error in the data\n"
 
 /* Number of required args for custom command */
 #define UPDATE_USERS_N_ARGS		2
@@ -73,13 +75,5 @@
 * @Return: 0 if EXIT command entered, otherwise 1.
 *********************************************************************/
 int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda, BidirectionalList *users_list, pthread_mutex_t *mutex);
-
-/*********************************************************************
-* @Purpose: Gets a list of users given a string containing the users and their data.
-* @Params: in: users = string containing the users and their data.
-*          in: length = length of the string.
-* @Return: Returns a bidirectional list of users.
-*********************************************************************/
-//BidirectionalList COMMANDS_getListFromString(char *users, int length);
 
 #endif

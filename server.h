@@ -30,7 +30,6 @@
 #define PETITION_EXIT_MSG               "New exit petition: %s has left Arda\n"
 /* Constants */
 #define BACKLOG     					10
-#define FD_NOT_FOUND                	-1
 
 typedef struct {
 	pthread_t id;

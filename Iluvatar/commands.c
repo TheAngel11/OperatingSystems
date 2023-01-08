@@ -178,48 +178,6 @@ char * getHostnameByIP(char *ip_address) {
 }
 
 /*********************************************************************
-* @Purpose: Gets a list of users given a string containing the users
-*           and their data.
-* @Params: in: users = string containing the users and their data.
-*          in: length = length of the string.
-* @Return: Returns a bidirectional list of users.
-*********************************************************************/
-/*BidirectionalList COMMANDS_getListFromString(char *users, int length) {
-    BidirectionalList list = BIDIRECTIONALLIST_create();
-	Element user;
-	char *buffer = NULL;
-	char *tmp = NULL;
-	int i = 0, j = 0;
-
-	while (i < length) {
-	    // get single user
-		buffer = SHAREDFUNCTIONS_splitString(users, GPC_USERS_SEPARATOR, &i);
-		user.username = SHAREDFUNCTIONS_splitString(buffer, GPC_DATA_SEPARATOR, &j);
-		user.ip_network = SHAREDFUNCTIONS_splitString(buffer, GPC_DATA_SEPARATOR, &j);
-		tmp = SHAREDFUNCTIONS_splitString(buffer, GPC_DATA_SEPARATOR, &j);
-		user.port = atoi(tmp);
-		free(tmp);
-		tmp = NULL;
-		tmp = SHAREDFUNCTIONS_splitString(buffer, GPC_DATA_SEPARATOR, &j);
-		user.pid = atoi(tmp);
-		free(tmp);
-		tmp = NULL;
-		// add to list
-		BIDIRECTIONALLIST_addAfter(&list, user);
-		// next user
-		free(buffer);
-		buffer = NULL;
-		free(user.username);
-		user.username = NULL;
-		free(user.ip_network);
-		user.ip_network = NULL;
-		j = 0;
-	}
-
-	return (list);
-}*/
-
-/*********************************************************************
 * @Purpose: Prints a list of the connected users.
 * @Params: in: users = list of connected users
 *          in/out: mutex = screen mutex to prevent writing to screen
@@ -325,7 +283,7 @@ char searchUserInList(BidirectionalList users, char *username, Element *user) {
 * 		   in: msg = message to send.
 *          in/out: mutex = screen mutex to prevent writing to screen
 *                  simultaneously
-* @Return: Returns 0 if the message was sent successfully, otherwise returns 1 or -1.
+* @Return: Returns 0 if message was sent successfully, otherwise 1.
 *********************************************************************/
 char socketsSendMsg(char *sender, Element e, char *msg, pthread_mutex_t *mutex) {
 	Client client;
@@ -355,12 +313,12 @@ char socketsSendMsg(char *sender, Element e, char *msg, pthread_mutex_t *mutex) 
 	} else {
 	    pthread_mutex_lock(mutex);
 		printMsg(COLOR_RED_TXT);
-		printMsg("ERROR: This is not a valid message to send\n");
+		printMsg(SEND_MSG_INVALID_MSG_ERROR);
 		printMsg(COLOR_DEFAULT_TXT);
 		pthread_mutex_unlock(mutex);
 	}
 
-	return (0);
+	return (1);
 }
 
 /*********************************************************************
@@ -383,12 +341,15 @@ char socketsSendFile(char *username, Element e, char *filename, char *directory,
 
 	// check file FD
 	if (fd_file == FD_NOT_FOUND) {
-	    pthread_mutex_lock(mutex);
+	    asprintf(&data, SEND_FILE_OPEN_FILE_ERROR, filename);
+		pthread_mutex_lock(mutex);
 		printMsg(COLOR_RED_TXT);
-		printMsg("ERROR: File not found (fd)\n");
+		printMsg(data);
 		printMsg(COLOR_DEFAULT_TXT);
 		pthread_mutex_unlock(mutex);
 		// free memory
+		free(data);
+		data = NULL;
 		free(filename_path);
 		filename_path = NULL;
 		return (1);
@@ -401,7 +362,7 @@ char socketsSendFile(char *username, Element e, char *filename, char *directory,
 	if (file_size == 0) {
 	    pthread_mutex_lock(mutex);
 		printMsg(COLOR_RED_TXT);
-		printMsg("ERROR: File is empty\n");
+		printMsg(SEND_FILE_EMPTY_FILE_ERROR);
 		printMsg(COLOR_DEFAULT_TXT);
 		pthread_mutex_unlock(mutex);
 		// free memory
@@ -435,170 +396,11 @@ char socketsSendFile(char *username, Element e, char *filename, char *directory,
 	} else {
 	    pthread_mutex_lock(mutex);
 		printMsg(COLOR_RED_TXT);
-		printMsg("ERROR: This is not a valid file to send\n");
+		printMsg(SEND_FILE_INVALID_FILE_ERROR);
 		printMsg(COLOR_DEFAULT_TXT);
 		pthread_mutex_unlock(mutex);
 	}
 
-	return (0);
-}
-
-/*********************************************************************
-* @Purpose: Sends a file to a user using message queues.
-* @Params: in: qfd = message queue file descriptor
-* 		   in: filename = name of the file to send
-* 		   in: iluvatar = instance of IluvatarSon
-*          in/out: mutex = screen mutex to prevent writing to screen
-*                  simultaneously
-* @Return: Returns 0 if the file was sent successfully, otherwise 1.
-*********************************************************************/
-char mqSendFile(mqd_t qfd, char *filename, char *directory, char *username, pthread_mutex_t *mutex) {
-	char *filename_path = NULL;
-	int file_size = 0;
-	char *md5sum = NULL;
-	char *message_send = NULL;
-	char *message_recv = NULL;
-	int fd_file = FD_NOT_FOUND;
-	struct mq_attr attr;
-
-	asprintf(&filename_path, ".%s/%s", directory, filename);
-	fd_file = open(filename_path, O_RDONLY);
-
-	// check file FD
-	if (fd_file == FD_NOT_FOUND) {
-		pthread_mutex_lock(mutex);
-		printMsg(COLOR_RED_TXT);
-		printMsg("ERROR: File not found (fd)\n");
-		printMsg(COLOR_DEFAULT_TXT);
-		pthread_mutex_unlock(mutex);
-		// free memory
-		free(filename_path);
-		filename_path = NULL;
-		return (1);
-	}
-
-	// get file size
-	file_size = (int) lseek(fd_file, 0, SEEK_END);
-	lseek(fd_file, 0, SEEK_SET);
-	
-	if (file_size == 0) {
-		pthread_mutex_lock(mutex);
-		printMsg(COLOR_RED_TXT);
-		printMsg("ERROR: File is empty\n");
-		printMsg(COLOR_DEFAULT_TXT);
-		pthread_mutex_unlock(mutex);
-		// free memory
-		free(filename_path);
-		filename_path = NULL;
-		return (1);
-	}
-
-	// Get the MD5SUM
-	md5sum = SHAREDFUNCTIONS_getMD5Sum(filename_path);
-	// Prepare the message to send
-	asprintf(&message_send, "file%c%s%c%s%c%d%c%s", ICP_DATA_SEPARATOR, username, ICP_DATA_SEPARATOR, filename, ICP_DATA_SEPARATOR, file_size, ICP_DATA_SEPARATOR, md5sum);
-	free(filename_path);
-	filename_path = NULL;
-	free(md5sum);
-	md5sum = NULL;
-	
-	// Send the file info message
-	if (mq_send(qfd, message_send, strlen(message_send) + 1, 0) == -1) {
-		pthread_mutex_lock(mutex);
-		printMsg(COLOR_RED_TXT);
-		printMsg("ERROR: The message could not be sent\n");
-		printMsg(COLOR_DEFAULT_TXT);
-		pthread_mutex_unlock(mutex);
-		return (1);
-	}
-
-	free(message_send);
-	message_send = NULL;
-
-	// Send the file in fragments if bigger than ICP_FILE_MAX_BYTES
-	while (file_size > ICP_FILE_MAX_BYTES) {
-		message_send = (char *) malloc(sizeof(char)  * ICP_FILE_MAX_BYTES);
-		read(fd_file, message_send, ICP_FILE_MAX_BYTES);
-		
-		if (mq_send(qfd, message_send, ICP_FILE_MAX_BYTES, 0) == -1) {
-		    pthread_mutex_lock(mutex);
-			printMsg(COLOR_RED_TXT);
-			printMsg("ERROR: The message could not be sent\n");
-			printMsg(COLOR_DEFAULT_TXT);
-			pthread_mutex_unlock(mutex);
-			free(message_send);
-			message_send = NULL;
-			return (1);
-		}
-		
-		free(message_send);
-		message_send = NULL;
-		file_size -= ICP_FILE_MAX_BYTES;
-	}
-	
-	// Send the last part of the file
-	message_send = (char *) malloc(sizeof(char) * file_size);
-	read(fd_file, message_send, file_size);
-
-	if (mq_send(qfd, message_send, file_size, 0) == -1) {
-		pthread_mutex_lock(mutex);
-		printMsg(COLOR_RED_TXT);
-		printMsg("ERROR: The message could not be sent\n");
-		printMsg(COLOR_DEFAULT_TXT);
-		pthread_mutex_unlock(mutex);
-		free(message_send);
-		message_send = NULL;
-		return (1);
-	}
-
-	free(message_send);
-	message_send = NULL;
-	close(fd_file);
-	
-	// get the attributes of the queue
-	if (mq_getattr(qfd, &attr) == -1) {
-		pthread_mutex_lock(mutex);
-		printMsg(COLOR_RED_TXT);
-		printMsg("ERROR: The attributes of the queue could not be obtained\n");
-		printMsg(COLOR_DEFAULT_TXT);
-		pthread_mutex_unlock(mutex);
-		perror("mq_getattr");
-		return (1);
-	}
-	
-	// Receive the answer
-	/*message_recv = (char *) malloc((attr.mq_msgsize + 1) * sizeof(char));	//TODO: S'ha de crear un semafor de sincronitzacio (ho explico a iluvatarSon linia 488 aprox)
-	if(mq_receive(qfd, message_recv, attr.mq_msgsize, NULL) == -1) {	//Todo: Change the 8 to a constant (BÉ DEL FILE_OK O FILE_KO)
-		printMsg(COLOR_RED_TXT);
-		printMsg("ERROR: The message could not be received\n");
-		printMsg(COLOR_DEFAULT_TXT);
-		perror("woefdhaspfdc");
-		free(message_recv);
-		message_recv = NULL;
-		return (-1);
-	}*/
-
-	/*if(0 == strcmp(message_recv, "FILE_OK")) {
-		printMsg("File correctly sent\n");
-	} else {
-		printMsg(COLOR_RED_TXT);
-		printMsg("ERROR: The file sent has lost its integrity\n");
-		printMsg(COLOR_DEFAULT_TXT);
-		free(message_recv);
-		message_recv = NULL;
-		return (-1);
-	}*/
-
-	if (message_recv != NULL) {
-		free(message_recv);
-		message_recv = NULL;
-	}
-
-	if (message_send != NULL) {
-		free(message_send);
-		message_send = NULL;
-	}
-	
 	return (0);
 }
 
@@ -648,7 +450,6 @@ char checkUserIP(char *origin_ip, char *destination_ip) {
 *********************************************************************/
 char sendMsgCommand(BidirectionalList clients, char *dest_username, char *message, char *origin_username, char *origin_ip, pthread_mutex_t *mutex) {
 	Element e;
-	mqd_t qfd;
 	char *buffer = NULL;
 
 	// search destination user
@@ -691,50 +492,11 @@ char sendMsgCommand(BidirectionalList clients, char *dest_username, char *messag
 			e.username = NULL;
 			free(e.ip_network);
 			e.ip_network = NULL;
-			// open queue
-			asprintf(&buffer, "/%d", e.pid);
-			qfd = mq_open(buffer, O_RDWR);
-			free(buffer);
-			buffer = NULL;
-			
-			// check message not empty
-			if (strlen(message) == 2) {
-			    // invalid message
-				mq_close(qfd);
-				return (SEND_MSG_KO);
-			}
-			
-			// prepare data for frame
-			asprintf(&buffer, "msg%c%s%c%s", ICP_DATA_SEPARATOR, origin_username, ICP_DATA_SEPARATOR, message);
 
 			// send message
-			if (mq_send(qfd, buffer, strlen(buffer) + 1, 0) == -1) {
-				pthread_mutex_lock(mutex);
-				printMsg(COLOR_RED_TXT);
-				printMsg("ERROR: The message could not be sent\n");
-				printMsg(COLOR_DEFAULT_TXT);
-				pthread_mutex_unlock(mutex);
-				// free memory
-				if (NULL != buffer) {
-			        free(buffer);
-					buffer = NULL;
-				}
-
-				mq_close(qfd);
-				return (SEND_MSG_KO);
-			} else {
-				pthread_mutex_lock(mutex);
-				printMsg("Message correctly sent\n"); 
-				pthread_mutex_unlock(mutex);
+			if (0 != ICP_sendMsg(e.pid, message, origin_username, mutex)) {
+			    return (SEND_MSG_KO);
 			}
-					
-			// free memory
-			if (NULL != buffer) {
-			    free(buffer);
-				buffer = NULL;
-			}
-
-			mq_close(qfd);
 		}
 
 		return (SEND_MSG_OK);
@@ -821,7 +583,7 @@ void sendFileCommand(BidirectionalList clients, char *dest_username, char *file,
 			buffer = NULL;
 			
 			// send file
-			if (0 != mqSendFile(qfd, file, directory, origin_username, mutex)) {
+			if (0 != ICP_sendFile(qfd, file, directory, origin_username, mutex)) {
 			    mq_close(qfd);
 				return;
 			}

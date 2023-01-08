@@ -29,6 +29,7 @@
 #define GPC_EXIT_HEADER					"EXIT\0"
 #define GPC_UNKNOWN_CMD_HEADER      	"UNKNOWN\0"
 #define GPC_FILE_MAX_BYTES			    512
+
 /**********************************************************************
 * @Purpose: Reads a frame sent through the network.
 * @Params: in: fd = file descriptor to read from.
