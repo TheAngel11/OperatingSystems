@@ -144,11 +144,11 @@ void answerConnectionRequest(Server *s, char **data, int client_fd) {
 	// Write connexion frame
 	if (s->clients.error == LIST_NO_ERROR) {
 		buffer = GPC_getUsersFromList(s->clients);
-		GPC_writeFrame(client_fd, 0x01, GPC_HEADER_CONOK, buffer, strlen(buffer)); 
+		GPC_writeFrame(client_fd, GCP_CONNECT_TYPE, GPC_HEADER_CONOK, buffer, strlen(buffer)); 
 		free(buffer);
 		buffer = NULL;
 	} else {
-	    GPC_writeFrame(client_fd, 0x01, GPC_HEADER_CONKO, NULL, 0); 
+	    GPC_writeFrame(client_fd, GCP_CONNECT_TYPE, GPC_HEADER_CONKO, NULL, 0); 
 	}
 
 	pthread_mutex_lock(s->mutex_print);
@@ -178,7 +178,7 @@ void answerListPetition(Server *s, char **data, int client_fd) {
 	*data = NULL;
 	// We don't need to apply mutex because the list is not modified
 	buffer = GPC_getUsersFromList(s->clients);
-	GPC_writeFrame(client_fd, 0x02, GPC_UPDATE_USERS_HEADER_OUT, buffer, strlen(buffer));
+	GPC_writeFrame(client_fd, GCP_UPDATE_USERS_TYPE, GPC_UPDATE_USERS_HEADER_OUT, buffer, strlen(buffer));
 	free(buffer);
 	buffer = NULL;
 }
@@ -242,9 +242,9 @@ void answerExitPetition(Server *s, char **data, int client_fd) {
 
 	// write exit frame
 	if ((s->clients.error == LIST_NO_ERROR) && !is_empty && found) {
-	    GPC_writeFrame(client_fd, 0x06, GPC_HEADER_CONOK, NULL, 0);             
+	    GPC_writeFrame(client_fd, GCP_EXIT_TYPE, GPC_HEADER_CONOK, NULL, 0);             
 	} else {
-	    GPC_writeFrame(client_fd, 0x06, GPC_HEADER_CONKO, NULL, 0);
+	    GPC_writeFrame(client_fd, GCP_EXIT_TYPE, GPC_HEADER_CONKO, NULL, 0);
 	}
 
 	pthread_mutex_lock(s->mutex_print);
@@ -272,7 +272,7 @@ void answerExitPetition(Server *s, char **data, int client_fd) {
 *********************************************************************/
 void *ardaClient(void *args) {
     Server *s = (Server *) args;
-    char type = 0x07;
+    char type = GCP_UNKNOWN_TYPE;
     char *header = NULL;
     char *data = NULL;
 	int client_fd = s->client_fd;
@@ -285,17 +285,17 @@ void *ardaClient(void *args) {
 
         switch (type) {
             // Connection request
-            case 0x01:
+            case GCP_CONNECT_TYPE:
 				answerConnectionRequest(s, &data, client_fd);
                 break;
             
             // Update list petition
-            case 0x02:
+            case GCP_UPDATE_USERS_TYPE:
                 answerListPetition(s, &data, client_fd);
                 break;
             
             // New message has been sent
-            case 0x08:
+            case GCP_COUNT_TYPE:
 				pthread_mutex_lock(s->mutex_print);
                 printMsg(COLOR_RED_TXT);
 		        printMsg(ERROR_TYPE_NOT_IMPLEMENTED_MSG);
@@ -304,7 +304,7 @@ void *ardaClient(void *args) {
                 break;
 
             // Exit petition
-            case 0x06:
+            case GCP_EXIT_TYPE:
                 answerExitPetition(s, &data, client_fd);
 				if(header != NULL) {
 					free(header);
@@ -332,7 +332,7 @@ void *ardaClient(void *args) {
 			header = NULL;
 		}
         
-		type = 0x07;
+		type = GCP_UNKNOWN_TYPE;
     }
     
     return NULL;
@@ -355,9 +355,9 @@ char answerSendMsg(ServerIluvatar *s, char **data) {
 	*data = NULL;
 			
 	// Reply message petition
-	if (message != NULL && /*strcmp(GPC_SEND_MSG_HEADER_IN, header) == 0 &&*/ s->server->clients.error == LIST_NO_ERROR) {
+	if (message != NULL && s->server->clients.error == LIST_NO_ERROR) {
 		// Send the OK frame
-		GPC_writeFrame(s->server->client_fd, 0x03, GPC_HEADER_MSGOK, NULL, 0);
+		GPC_writeFrame(s->server->client_fd, GCP_SEND_MSG_TYPE, GPC_HEADER_MSGOK, NULL, 0);
 		// Print the message
 		asprintf(&buffer, MSG_RECIEVED_MSG, origin_user, s->server->client_ip, message);
 		pthread_mutex_lock(s->server->mutex_print);
@@ -367,7 +367,7 @@ char answerSendMsg(ServerIluvatar *s, char **data) {
 		buffer = NULL;
 	} else {
 		// Send the KO frame
-		GPC_writeFrame(s->server->client_fd, 0x03, GPC_HEADER_MSGKO, NULL, 0);
+		GPC_writeFrame(s->server->client_fd, GCP_SEND_MSG_TYPE, GPC_HEADER_MSGKO, NULL, 0);
 		
 		// free memory
 		if (origin_user != NULL) {
@@ -410,7 +410,7 @@ char answerSendFile(ServerIluvatar *s, char **data) {
 	char *path = NULL;
 	char *origin_user = NULL;
 	char *header = NULL;
-	char type = 0x07;
+	char type = GCP_UNKNOWN_TYPE;
 	int file_size = 0;
 	int file_fd = -1;
 
@@ -457,15 +457,6 @@ char answerSendFile(ServerIluvatar *s, char **data) {
 	buffer = SHAREDFUNCTIONS_getMD5Sum(path);
 	free(path);
 	path = NULL;
-	//TODO:debug
-		pthread_mutex_lock(s->server->mutex_print);
-	printMsg("OG MD5SUM: ");
-	printMsg(md5sum);
-	printMsg("\nnew MD5SUM: ");
-	printMsg(buffer);
-	printMsg("\n");
-		pthread_mutex_unlock(s->server->mutex_print);
-	//TODO:end
 			
 	if (strcmp(buffer, md5sum) == 0) {
 		// Send OK frame
@@ -515,7 +506,7 @@ char answerSendFile(ServerIluvatar *s, char **data) {
 *********************************************************************/
 void *iluvatarClient(void *args) {
     ServerIluvatar *s = (ServerIluvatar *) args;
-    char type = 0x07;
+    char type = GCP_UNKNOWN_TYPE;
     char *header = NULL;
     char *data = NULL;
 	char *buffer = NULL;
@@ -556,7 +547,7 @@ void *iluvatarClient(void *args) {
 		header = NULL;
 	}
 
-	type = 0x07;
+	type = GCP_UNKNOWN_TYPE;
 
 	if (received_OK) {
 		// open again the command line
@@ -657,6 +648,8 @@ char *SERVER_getClientIP(int client_fd) {
 * @Purpose: Runs an initialized IluvatarSon passive socket.
 * @Params: in/out: iluvatarSon = instance of IluvatarSon
 *		   in/out: server = initialized instance of Server
+*          in/out: mutex_print = screen mutex to prevent writing to
+*                  screen simultaneously
 * @Return: ----
 *********************************************************************/
 void SERVER_runIluvatar(IluvatarSon *iluvatarSon, Server *server, pthread_mutex_t *mutex_print) {

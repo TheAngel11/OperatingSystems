@@ -75,7 +75,9 @@ void SERVER_runArda(Arda *arda, Server *server);
 /*********************************************************************
 * @Purpose: Runs an initialized IluvatarSon passive socket.
 * @Params: in/out: iluvatarSon = instance of IluvatarSon
-*		   in/out: server = initialized instance of Server.
+*		   in/out: server = initialized instance of Server
+*          in/out: mutex_print = screen mutex to prevent writing to
+*                  screen simultaneously
 * @Return: ----
 *********************************************************************/
 void SERVER_runIluvatar(IluvatarSon *iluvatarSon, Server *server, pthread_mutex_t *mutex_print); 
