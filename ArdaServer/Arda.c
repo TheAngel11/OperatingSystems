@@ -15,6 +15,7 @@
 #include "../server.h"
 
 #define DISCONNECT_ARDA_MSG		"\nDisconnecting Arda from all Iluvatar's children\n"
+#define N_MSG_ARDA_MSG			"%d Messages have been sent through the network\n"
 #define CLOSING_ARDA_MSG        "Closing server\n"
 #define WELCOME_MSG             "\nARDA SERVER\n"
 #define READING_FILE_MSG        "Reading configuration file\n"
@@ -25,9 +26,29 @@
 #define ARDA_OK	    			0
 #define ARDA_KO	    			-1
 #define MIN_N_ARGS				2
+#define N_MSG_FILE_PATH			"./totalMessages.txt"
+#define N_MSG_EOF				'#'
 
 Arda arda;
 Server server;
+
+/*********************************************************************
+* @Purpose: Write total messages.
+* @Params: ----
+* @Return: ----
+*********************************************************************/
+void updateTotalMsg() {
+    int fd = open(N_MSG_FILE_PATH, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+	char *buffer = NULL;
+
+	if (fd != -1) {
+	    asprintf(&buffer, "%d%c\n", server.n_msg, N_MSG_EOF);
+		write(fd, buffer, strlen(buffer));
+		free(buffer);
+		buffer = NULL;
+		close(fd);
+	}
+}
 
 /*********************************************************************
 * @Purpose: Free memory and close any open file descriptors before
@@ -36,13 +57,22 @@ Server server;
 * @Return: ----
 *********************************************************************/
 void sigIntHandler() {   
-    SERVER_close(&server);
+    char *buf = NULL;
+
+	updateTotalMsg();
+	asprintf(&buf, N_MSG_ARDA_MSG, server.n_msg);
+	SERVER_close(&server);
 	SHAREDFUNCTIONS_freeArda(&arda); 
-    if(server.thread != NULL) {
+    
+	if (server.thread != NULL) {
         free(server.thread); 
 	    server.thread = NULL;
     }
+	
 	printMsg(DISCONNECT_ARDA_MSG);
+	printMsg(buf);
+	free(buf);
+	buf = NULL;
     printMsg(CLOSING_ARDA_MSG);
     signal(SIGINT, SIG_DFL);
     raise(SIGINT);
@@ -100,7 +130,8 @@ int readArda(char *filename, Arda *arda) {
 *********************************************************************/
 int main(int argc, char* argv[]) {
 	char *buffer = NULL;
-    int read_ok = ARDA_KO;
+    int fd_n_msg = -1, n_msg = 0;
+	int read_ok = ARDA_KO;
     
     if (MIN_N_ARGS > argc) {
         printMsg(COLOR_RED_TXT);
@@ -133,8 +164,20 @@ int main(int argc, char* argv[]) {
         return (-1);
     }
     
+	// get total messages
+	if (-1 != (fd_n_msg = open(N_MSG_FILE_PATH, O_RDONLY))) {
+	    buffer = SHAREDFUNCTIONS_readUntil(fd_n_msg, N_MSG_EOF);
+		n_msg = atoi(buffer);
+		free(buffer);
+		buffer = NULL;
+		
+		if (-1 != fd_n_msg) {
+		    close(fd_n_msg);
+		}
+	}
+	
 	// Open passive socket
-	server = SERVER_init(arda.ip_address, arda.port);
+	server = SERVER_init(arda.ip_address, arda.port, n_msg);
 
 	if ((FD_NOT_FOUND == server.listen_fd) || (LIST_NO_ERROR != server.clients.error)) {
 	    SHAREDFUNCTIONS_freeArda(&arda);

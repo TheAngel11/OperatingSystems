@@ -12,9 +12,10 @@
 * @Purpose: Initializes a server opening its passive socket.
 * @Params: in: ip = IP address of the host.
 *          in: port = port of the host.
+*          in: n_msg = total messages since last closed server
 * @Return: Returns an instance of Server.
 *********************************************************************/
-Server SERVER_init(char *ip, int port) {
+Server SERVER_init(char *ip, int port, int n_msg) {
     Server s;
 	struct sockaddr_in server;
 
@@ -23,6 +24,8 @@ Server SERVER_init(char *ip, int port) {
 	s.client_fd = FD_NOT_FOUND;
 	s.thread = NULL;
 	s.n_threads = 0;
+	s.n_msg = n_msg;
+	pthread_mutex_init(&s.n_msg_mutex, NULL);
 	pthread_mutex_init(&s.mutex, NULL);
 	pthread_mutex_init(&s.client_fd_mutex, NULL);
 	s.mutex_print = NULL;
@@ -296,12 +299,10 @@ void *ardaClient(void *args) {
             
             // New message has been sent
             case GCP_COUNT_TYPE:
-				pthread_mutex_lock(s->mutex_print);
-                printMsg(COLOR_RED_TXT);
-		        printMsg(ERROR_TYPE_NOT_IMPLEMENTED_MSG);
-                printMsg(COLOR_DEFAULT_TXT);
-				pthread_mutex_unlock(s->mutex_print);
-                break;
+				pthread_mutex_lock(&s->n_msg_mutex);
+				s->n_msg++;
+				pthread_mutex_unlock(&s->n_msg_mutex);
+				break;
 
             // Exit petition
             case GCP_EXIT_TYPE:
@@ -742,9 +743,10 @@ void SERVER_close(Server *server) {
 	}
 	pthread_mutex_unlock(&server->mutex);
 	pthread_mutex_destroy(&server->mutex);
+	pthread_mutex_destroy(&server->n_msg_mutex);
 	pthread_mutex_destroy(&server->client_fd_mutex);
 	
 	if (NULL != server->mutex_print) {
-	pthread_mutex_destroy(server->mutex_print);
+	    pthread_mutex_destroy(server->mutex_print);
 	}
 }

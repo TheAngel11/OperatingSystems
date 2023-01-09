@@ -28,6 +28,7 @@
 #define RESPONSE_SENT_LIST_MSG          "Response sent\n\n"
 #define PETITION_UPDATE_MSG             "New petition: %s demands the user's list\nSending user's list to %s\n\n"
 #define PETITION_EXIT_MSG               "New exit petition: %s has left Arda\n"
+
 /* Constants */
 #define BACKLOG     					10
 
@@ -43,6 +44,8 @@ typedef struct {
 	ThreadInfo *thread;
 	int n_threads;
 	pthread_mutex_t mutex;
+	int n_msg;
+	pthread_mutex_t n_msg_mutex;
 	pthread_mutex_t client_fd_mutex;
 	pthread_mutex_t *mutex_print;
 	BidirectionalList clients;
@@ -58,9 +61,10 @@ typedef struct {
 * @Purpose: Initializes a server opening its passive socket.
 * @Params: in: ip = IP address of the host.
 *          in: port = port of the host.
+*          in: n_msg = total messages since last closed server
 * @Return: Returns an instance of Server.
 *********************************************************************/
-Server SERVER_init(char *ip, int port);
+Server SERVER_init(char *ip, int port, int n_msg);
 
 /*********************************************************************
 * @Purpose: Runs an initialized Arda server.

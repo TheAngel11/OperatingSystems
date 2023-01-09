@@ -634,7 +634,8 @@ char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 			break;
 		case IS_SEND_MSG_CMD:
 		    if (SEND_MSG_OK == sendMsgCommand(*clients, command[2], command[3], iluvatar.username, iluvatar.ip_address, mutex)) {
-			    //TODO: send frame to count new message
+			    // send frame to count new message
+				GPC_writeFrame(fd_dest, GCP_COUNT_TYPE, GCP_COUNT_MSG_HEADER, iluvatar.username, strlen(iluvatar.username));
 			}
 
 			break;

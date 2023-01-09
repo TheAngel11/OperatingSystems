@@ -419,7 +419,7 @@ int main(int argc, char* argv[]) {
 		}
 
 		// Open passive socket (prepare Iluvatar server)
-		server = SERVER_init(iluvatarSon.ip_address, iluvatarSon.port);
+		server = SERVER_init(iluvatarSon.ip_address, iluvatarSon.port, 0);
 
 		if ((FD_NOT_FOUND == server.listen_fd) || (LIST_NO_ERROR != server.clients.error)) {
 	    	SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);

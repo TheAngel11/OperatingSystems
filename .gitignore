@@ -1,6 +1,7 @@
 *.o
 IluvatarSon
 Arda
+totalMessages.txt
 /files
 /tests
 /.vscode
