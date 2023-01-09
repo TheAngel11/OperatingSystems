@@ -27,14 +27,15 @@ Server SERVER_init(char *ip, int port) {
 	pthread_mutex_init(&s.client_fd_mutex, NULL);
 	s.mutex_print = NULL;
 	s.n_clients = 0;
+	s.clients = BIDIRECTIONALLIST_create();
 
     // Creating the server socket
-    if ((s.listen_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
-        printMsg(COLOR_RED_TXT);
-        printMsg(ERROR_CREATING_SOCKET_MSG);
-        printMsg(COLOR_DEFAULT_TXT);
-        return (s);
-    }
+	if ((s.listen_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+	    printMsg(COLOR_RED_TXT);
+		printMsg(ERROR_CREATING_SOCKET_MSG);
+		printMsg(COLOR_DEFAULT_TXT);
+		return (s);
+	}
 
     // Clear and assign the values to the server structure
     bzero(&server, sizeof(server));
@@ -42,33 +43,32 @@ Server SERVER_init(char *ip, int port) {
     server.sin_family = AF_INET;
 	
 	if (inet_pton(AF_INET, ip, &server.sin_addr) < 0) {
+	    printMsg(COLOR_RED_TXT);
 	    printMsg(ERROR_IP_CONFIGURATION_MSG);
+		printMsg(COLOR_DEFAULT_TXT);
 		close(s.listen_fd);
 		s.listen_fd = FD_NOT_FOUND;
 		return (s);
 	}
 
     // Binding server socket (Assigning IP and port to the socket)
-    if (bind(s.listen_fd, (struct sockaddr*) &server, sizeof(server)) < 0) {
-        printMsg(COLOR_RED_TXT);
-        printMsg(ERROR_BINDING_SOCKET_MSG);
-        printMsg(COLOR_DEFAULT_TXT);
-        close(s.listen_fd);
+	if (bind(s.listen_fd, (struct sockaddr*) &server, sizeof(server)) < 0) {
+	    printMsg(COLOR_RED_TXT);
+		printMsg(ERROR_BINDING_SOCKET_MSG);
+		printMsg(COLOR_DEFAULT_TXT);
+		close(s.listen_fd);
 		s.listen_fd = FD_NOT_FOUND;
-        return (s);
-    }
+		return (s);
+	}
 
-    // Listening (Transforms the server active socket into a passive socket)
-    if (listen(s.listen_fd, BACKLOG) < 0) {
+	// Listening (Transforms the server active socket into a passive socket)
+	if (listen(s.listen_fd, BACKLOG) < 0) {
         printMsg(COLOR_RED_TXT);
         printMsg(ERROR_LISTENING_MSG);
         printMsg(COLOR_DEFAULT_TXT);
         close(s.listen_fd);
 		s.listen_fd = FD_NOT_FOUND;
-		return (s);
     }
-
-	s.clients = BIDIRECTIONALLIST_create();
 
 	return (s);
 }
