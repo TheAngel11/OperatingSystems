@@ -42,6 +42,8 @@
 #define GPC_DATA_SEPARATOR				'&'
 #define GPC_USERS_SEPARATOR				'#'
 #define GPC_FILE_MAX_BYTES			    512
+#define GCP_FRAME_OK					1
+#define GCP_FRAME_KO					0
 
 /*********************************************************************
 * @Purpose: Checks the header and data fields of a frame to be sent.
