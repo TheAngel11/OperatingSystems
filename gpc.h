@@ -11,9 +11,17 @@
 #include "sharedFunctions.h"
 #include "bidirectionallist.h"
 
-#define GPC_DATA_SEPARATOR				'&'
-#define GPC_DATA_SEPARATOR_STR          "&"
-#define GPC_USERS_SEPARATOR				'#'
+/* Types of frames */
+#define GCP_CONNECT_TYPE				0x01
+#define GCP_UPDATE_USERS_TYPE			0x02
+#define GCP_SEND_MSG_TYPE				0x03
+#define GCP_SEND_FILE_TYPE				0x04
+#define GCP_MD5SUM_TYPE					0x05
+#define GCP_EXIT_TYPE					0x06
+#define GCP_UNKNOWN_TYPE				0x07
+#define GCP_COUNT_TYPE					0x08
+
+/* Headers */
 #define GPC_CONNECT_SON_HEADER			"NEW_SON\0" 
 #define GPC_UPDATE_USERS_HEADER_IN		"LIST_REQUEST\0"
 #define GPC_UPDATE_USERS_HEADER_OUT		"LIST_RESPONSE\0"
@@ -28,7 +36,20 @@
 #define GPC_HEADER_CONKO            	"CONKO\0"
 #define GPC_EXIT_HEADER					"EXIT\0"
 #define GPC_UNKNOWN_CMD_HEADER      	"UNKNOWN\0"
+#define GCP_COUNT_MSG_HEADER			"NEW_MSG\0"
+
+/* Other constants */
+#define GPC_DATA_SEPARATOR				'&'
+#define GPC_USERS_SEPARATOR				'#'
 #define GPC_FILE_MAX_BYTES			    512
+
+/*********************************************************************
+* @Purpose: Checks the header and data fields of a frame to be sent.
+* @Params: in: frame = instance of FrameGCP to be sent
+* @Return: Returns GCP_FRAME_OK if the frame fields match the type,
+*          otherwise GCP_FRAME_KO.
+*********************************************************************/
+char GCP_checkSendFrame(char type, char *header, char *data);
 
 /**********************************************************************
 * @Purpose: Reads a frame sent through the network.
