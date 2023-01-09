@@ -7,6 +7,12 @@
 *********************************************************************/
 #include "client.h"
 
+/*********************************************************************
+* @Purpose: Initializes a client.
+* @Params: in: ip = string with the server ip
+*          in: port = server port
+* @Return: Returns an initialized instance of Client.
+*********************************************************************/
 Client CLIENT_init(char *ip, int port) {
     Client c;
 	struct sockaddr_in server;
@@ -90,6 +96,14 @@ BidirectionalList getListFromString(char *users, int length) {
 	return (list);
 }
 
+/*********************************************************************
+* @Purpose: Manages replies from Arda server.
+* @Params: in/out: c = initialized instance of Client
+*          in/out: users_list = list of users of the client
+*          in/out: mutex = screen mutex to prevent writing to screen
+*                  simultaneously
+* @Return: Returns 1 if received EXIT, otherwise 0.
+*********************************************************************/
 char CLIENT_manageArdaServerAnswer(Client *c, BidirectionalList *users_list, pthread_mutex_t *mutex) {
 	char *buffer = NULL;
 	char *header = NULL;
@@ -104,13 +118,13 @@ char CLIENT_manageArdaServerAnswer(Client *c, BidirectionalList *users_list, pth
 		printMsg(COLOR_DEFAULT_TXT);
 		pthread_mutex_unlock(mutex);
 		ret_value = 1;
-	} else if ((0 == strcmp(header, GPC_UPDATE_USERS_HEADER_OUT)) && (0x02 == type)) {
+	} else if ((0 == strcmp(header, GPC_UPDATE_USERS_HEADER_OUT)) && (GCP_UPDATE_USERS_TYPE == type)) {
 		// Manage UPDATE USERS
 		BIDIRECTIONALLIST_destroy(users_list);
 		*users_list = getListFromString(buffer, (int) strlen(buffer));
 		free(buffer);
 		buffer = NULL;
-	} else if ((0 == strcmp(header, GPC_HEADER_CONOK)) && (0x06 == type)) {
+	} else if ((0 == strcmp(header, GPC_HEADER_CONOK)) && (GCP_EXIT_TYPE == type)) {
 		// Manage EXIT
 		pthread_mutex_lock(mutex);
 		printMsg(COLOR_DEFAULT_TXT);
@@ -139,6 +153,14 @@ char CLIENT_manageArdaServerAnswer(Client *c, BidirectionalList *users_list, pth
 	return (ret_value);
 }
 
+/*********************************************************************
+* @Purpose: Sends a message to an IluvatarSon in different machines.
+* @Params: in/out: c = initialized instance of Client
+*          in/out: data = string with message to send
+*          in/out: mutex = screen mutex to prevent writing to screen
+*                  simultaneously
+* @Return: Returns 0 if no errors, otherwise 1.
+*********************************************************************/
 char CLIENT_sendMsg(Client *c, char **data, pthread_mutex_t *mutex) {
 	char *header = NULL;
 	char type = 0x07;
@@ -194,6 +216,16 @@ char CLIENT_sendMsg(Client *c, char **data, pthread_mutex_t *mutex) {
 	return (0);
 }
 
+/*********************************************************************
+* @Purpose: Sends a file to an IluvatarSon in different machines.
+* @Params: in/out: c = initialized instance of Client
+*          in/out: data = string with info about file to send
+*          in/out: fd_file = open file descriptor of the file to send
+*          in: file_size = size in bytes of the file to send
+*          in/out: mutex = screen mutex to prevent writing to screen
+*                  simultaneously
+* @Return: Returns 0 if no errors, otherwise 1.
+*********************************************************************/
 char CLIENT_sendFile(Client *c, char **data, int *fd_file, int file_size, pthread_mutex_t *mutex) {
 	char *header = NULL;
 	char type = 0x07;
