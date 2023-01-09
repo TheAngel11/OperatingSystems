@@ -38,6 +38,9 @@
 #define GPC_UNKNOWN_CMD_HEADER      	"UNKNOWN\0"
 #define GCP_COUNT_MSG_HEADER			"NEW_MSG\0"
 
+/* Messages */
+#define GCP_WRONG_FORMAT_ERROR_MSG		"ERROR: Wrong frame format for selected type.\nCorrect format: type: 0x0%d header: %s data: <username>\n"
+
 /* Other constants */
 #define GPC_DATA_SEPARATOR				'&'
 #define GPC_USERS_SEPARATOR				'#'

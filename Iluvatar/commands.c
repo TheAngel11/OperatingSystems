@@ -4,7 +4,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 07/10/2022
-* @Last change: 08/01/2023
+* @Last change: 09/01/2023
 *********************************************************************/
 #include "commands.h"
 
@@ -604,18 +604,30 @@ void sendFileCommand(BidirectionalList clients, char *dest_username, char *file,
 * @Return: ----
 *********************************************************************/
 char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, BidirectionalList *clients, char **command, pthread_mutex_t *mutex) {
-	FrameGCP frame;
+	char *buffer = NULL;
 
 	switch (id) {
-	    case IS_UPDATE_USERS_CMD:
-			pthread_mutex_lock(mutex);
-			printMsg(UPDATE_USERS_SUCCESS_MSG);
-			pthread_mutex_unlock(mutex);
-			// prepare frame
-			frame = GCP_prepareFrame(GCP_UPDATE_USERS_TYPE, GPC_UPDATE_USERS_HEADER_IN, iluvatar.username);
+	    case IS_UPDATE_USERS_CMD:			
 			// check frame
-			// request list
-			GPC_writeFrame(fd_dest, 0x02, GPC_UPDATE_USERS_HEADER_IN, iluvatar.username, strlen(iluvatar.username));
+			if (GCP_FRAME_OK == GCP_checkSendFrame(GCP_UPDATE_USERS_TYPE, GPC_UPDATE_USERS_HEADER_IN, iluvatar.username)) {
+			    pthread_mutex_lock(mutex);
+				printMsg(UPDATE_USERS_SUCCESS_MSG);
+				pthread_mutex_unlock(mutex);
+				// request list
+				GPC_writeFrame(fd_dest, GCP_UPDATE_USERS_TYPE, GPC_UPDATE_USERS_HEADER_IN, iluvatar.username, strlen(iluvatar.username));
+			} else {
+			    // show error message
+				asprintf(&buffer, GCP_WRONG_FORMAT_ERROR_MSG, GCP_UPDATE_USERS_TYPE, GPC_UPDATE_USERS_HEADER_IN);
+				pthread_mutex_lock(mutex);
+				printMsg(COLOR_RED_TXT);
+				printMsg(buffer);
+				printMsg(COLOR_DEFAULT_TXT);
+				pthread_mutex_unlock(mutex);
+				// free memory
+				free(buffer);
+				buffer = NULL;
+			}
+
 			break;
 		case IS_LIST_USERS_CMD:
 			printUsersList(*clients, mutex);
