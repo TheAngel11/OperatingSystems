@@ -420,7 +420,15 @@ char answerSendFile(ServerIluvatar *s, char **data) {
 	*data = NULL;
 	// create file to copy received file
 	asprintf(&path, ".%s/%s", s->iluvatar->directory, filename);
-	file_fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+	
+	// TODO?: if file already exists check that it is not opened
+//	if (1 == checkFileExists(origin_user, filename)) {
+//	    pthread_mutex_lock(&s->server->mutex_file_fd);
+//		file_fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+//		pthread_mutex_unlock(&s->server->mutex_file_fd);
+//	} else {
+		file_fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+//	}
 			
 	while (file_size > GPC_FILE_MAX_BYTES) {
 		// Read the frame

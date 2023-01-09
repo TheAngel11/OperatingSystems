@@ -81,13 +81,6 @@ void SERVER_runArda(Arda *arda, Server *server);
 void SERVER_runIluvatar(IluvatarSon *iluvatarSon, Server *server, pthread_mutex_t *mutex_print); 
 
 /*********************************************************************
-* @Purpose: Closes all the file descriptors of the clients.
-* @Params: ----
-* @Return: ----
-*********************************************************************/
-void closeAllClientFDs(Server *server);
-
-/*********************************************************************
 * @Purpose: Runs an initialized Arda server.
 * @Params: in/out: server = instance of Server.
 * @Return: ----

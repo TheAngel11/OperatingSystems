@@ -248,8 +248,8 @@ char searchUserInList(BidirectionalList users, char *username, Element *user) {
 		while (BIDIRECTIONALLIST_isValid(users)) {
 	        *user = BIDIRECTIONALLIST_get(&users);
 
-			// check user
-			if (0 == strcasecmp(user->username, username)) {
+			// check user (case sensitive)
+			if (0 == strcmp(user->username, username)) {
 				return (USER_FOUND);
 			}
 
@@ -577,7 +577,6 @@ void sendFileCommand(BidirectionalList clients, char *dest_username, char *file,
 			free(e.ip_network);
 			e.ip_network = NULL;	
 			// send file
-//			ICP_sendFile(e.pid, file, directory, origin_username, sem_mq, mutex);
 			ICP_sendFile(e.pid, file, directory, origin_username, mutex);
 		}
 	} else {
@@ -604,12 +603,17 @@ void sendFileCommand(BidirectionalList clients, char *dest_username, char *file,
 *          in/out: command = string containing the command to execute
 * @Return: ----
 *********************************************************************/
-char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, BidirectionalList *clients, char **command,/* semaphore *sem_mq,*/ pthread_mutex_t *mutex) {
+char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, BidirectionalList *clients, char **command, pthread_mutex_t *mutex) {
+	FrameGCP frame;
+
 	switch (id) {
 	    case IS_UPDATE_USERS_CMD:
 			pthread_mutex_lock(mutex);
 			printMsg(UPDATE_USERS_SUCCESS_MSG);
 			pthread_mutex_unlock(mutex);
+			// prepare frame
+			frame = GCP_prepareFrame(GCP_UPDATE_USERS_TYPE, GPC_UPDATE_USERS_HEADER_IN, iluvatar.username);
+			// check frame
 			// request list
 			GPC_writeFrame(fd_dest, 0x02, GPC_UPDATE_USERS_HEADER_IN, iluvatar.username, strlen(iluvatar.username));
 			break;
@@ -623,7 +627,6 @@ char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 
 			break;
 		case IS_SEND_FILE_CMD:
-//		    sendFileCommand(*clients, command[2], command[3], iluvatar.directory, iluvatar.username, iluvatar.ip_address, sem_mq, mutex);
 		    sendFileCommand(*clients, command[2], command[3], iluvatar.directory, iluvatar.username, iluvatar.ip_address, mutex);
 			break;
 		default:
@@ -676,12 +679,10 @@ int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda
 
 	if ((ERROR_CMD_ARGS != cmd_id) && (IS_NOT_CUSTOM_CMD != cmd_id)) {
 	    // execute custom command
-//		error = executeCustomCommand(cmd_id, fd_arda, *iluvatar, users_list, command, sem_mq, mutex);
 		error = executeCustomCommand(cmd_id, fd_arda, *iluvatar, users_list, command, mutex);
 
 		if ((cmd_id == IS_EXIT_CMD) && !error) {
 			freeMemCmd(&command, &n_args);
-			//SHAREDFUNCTIONS_freeIluvatarSon(iluvatar);
 			return (1);
 		}
 	} else if (IS_NOT_CUSTOM_CMD == cmd_id) {

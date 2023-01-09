@@ -3,9 +3,124 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 11/12/2022
-* @Last change: 08/01/2023
+* @Last change: 09/01/2023
 *********************************************************************/
 #include "gpc.h"
+
+/*********************************************************************
+* @Purpose: Checks that headers match and data is not empty.
+* @Params: in: header = string with the expected header
+*          in: frame_header = string with the header to check
+*		   in: length = length in bytes of the data
+* @Return: Returns GCP_FRAME_OK if headers match and data not empty,
+*          otherwise GCP_FRAME_KO.
+*********************************************************************/
+char checkFrameDataNotEmpty(char *header, char *frame_header, unsigned short length) {
+	// check header
+	if (0 != strcmp(header, frame_header)) {
+	    // error
+		return (GCP_FRAME_KO);
+	}
+
+	// check data not empty
+	if (0 == length) {
+	    // error
+		return (GCP_FRAME_KO);
+	}
+
+	return (GCP_FRAME_OK);
+}
+
+/*********************************************************************
+* @Purpose: Checks that headers match and data is empty.
+* @Params: in: header = string with the expected header
+*          in: frame_header = string with the header to check
+*		   in: length = length in bytes of the data
+* @Return: Returns GCP_FRAME_OK if headers match and data is empty,
+*          otherwise GCP_FRAME_KO.
+*********************************************************************/
+char checkFrameEmptyData(char *header, char *frame_header, unsigned short length) {
+	// check header
+	if (0 != strcmp(header, frame_header)) {
+	    // error
+		return (GCP_FRAME_KO);
+	}
+
+	// check data not empty
+	if (0 < length) {
+	    // error
+		return (GCP_FRAME_KO);
+	}
+
+	return (GCP_FRAME_OK);
+}
+
+/*********************************************************************
+* @Purpose: Checks the header and data fields of a frame to be sent.
+* @Params: in: frame = instance of FrameGCP to be sent
+* @Return: Returns GCP_FRAME_OK if the frame fields match the type,
+*          otherwise GCP_FRAME_KO.
+*********************************************************************/
+char GCP_checkSendFrame(char type, char *header, char *data) {
+	unsigned short length = (NULL == data) ? 0 : (unsigned short) strlen(data);
+
+	switch (type) {
+	    case GCP_CONNECT_TYPE:
+		    // header can be NEW_SON, CONOK or CONKO
+			if (GCP_FRAME_OK == checkFrameDataNotEmpty(GPC_CONNECT_SON_HEADER, header, length)) {
+			    return (GCP_FRAME_OK);
+			} else if (GCP_FRAME_OK == checkFrameEmptyData(GPC_HEADER_CONOK, header, length)) {
+			    return (GCP_FRAME_OK);
+			}
+			
+			return (checkFrameEmptyData(GPC_HEADER_CONKO, header, length));
+		case GCP_UPDATE_USERS_TYPE:
+			// header can be LIST_REQUEST or LIST_RESPONSE
+			if (GCP_FRAME_KO == checkFrameDataNotEmpty(GPC_UPDATE_USERS_HEADER_IN, header, length)) {
+			    return (checkFrameDataNotEmpty(GPC_UPDATE_USERS_HEADER_OUT, header, length));
+			}
+
+			return (GCP_FRAME_OK);
+		case GCP_SEND_MSG_TYPE:
+			// header can be MSG, MSGOK or MSGKO
+			if (GCP_FRAME_OK == checkFrameDataNotEmpty(GPC_SEND_MSG_HEADER_IN, header, length)) {
+			    return (GCP_FRAME_OK);
+			} else if (GCP_FRAME_OK == checkFrameEmptyData(GPC_HEADER_MSGOK, header, length)) {
+			    return (GCP_FRAME_OK);
+			}
+			
+			return (checkFrameEmptyData(GPC_HEADER_MSGKO, header, length));
+		case GCP_SEND_FILE_TYPE:
+		    // header can be NEW_FILE or FILE_DATA
+			if (GCP_FRAME_KO == checkFrameDataNotEmpty(GPC_SEND_FILE_INFO_HEADER_IN, header, length)) {
+			    return (checkFrameDataNotEmpty(GPC_SEND_FILE_DATA_HEADER_IN, header, length));
+			}
+			
+			return (GCP_FRAME_OK);
+		case GCP_MD5SUM_TYPE:
+			// header can be CHECK_OK or CHECK_KO
+			if (GCP_FRAME_KO == checkFrameEmptyData(GPC_SEND_FILE_HEADER_OK_OUT, header, length)) {
+			    return (checkFrameEmptyData(GPC_SEND_FILE_HEADER_KO_OUT, header, length));
+			}
+		    
+			return (GCP_FRAME_OK);
+		case GCP_EXIT_TYPE:
+		    // header can be EXIT, CONOK or CONKO
+			if (GCP_FRAME_OK == checkFrameDataNotEmpty(GPC_EXIT_HEADER, header, length)) {
+			    return (GCP_FRAME_OK);
+			} else if (GCP_FRAME_OK == checkFrameEmptyData(GPC_HEADER_CONOK, header, length)) {
+			    return (GCP_FRAME_OK);
+			}
+			
+			return (checkFrameEmptyData(GPC_HEADER_CONKO, header, length));
+		case GCP_COUNT_TYPE:
+			return (checkFrameDataNotEmpty(GCP_COUNT_MSG_HEADER, header, length));
+		default:
+			return (checkFrameEmptyData(GPC_UNKNOWN_CMD_HEADER, header, length));
+	}
+
+	return (GCP_FRAME_KO);
+}
 
 /**********************************************************************
 * @Purpose: Reads a frame sent through the network.

@@ -33,7 +33,7 @@
 /* Messages */
 #define UNKNOWN_CMD_MSG					"Unknown command\n"
 #define ERROR_SEND_MSG_FORMAT			"ERROR: Missing message separators (\")\n"
-#define ERROR_SEND_MSG_LESS_ARGS		"ERROR: \"SEND MSG\" requires a user and a message\n"
+#define ERROR_SEND_MSG_LESS_ARGS		"ERROR: To send a correct message use: send msg <Dst. User> \"<Message content>\"\n"
 #define ERROR_SEND_MSG_MORE_ARGS		"ERROR: \"SEND MSG\" has too many arguments\n"
 #define ERROR_SEND_FILE_LESS_ARGS		"ERROR: \"SEND FILE\" requires a user and a file\n"
 #define ERROR_SEND_FILE_MORE_ARGS		"ERROR: \"SEND FILE\" has too many arguments\n"
