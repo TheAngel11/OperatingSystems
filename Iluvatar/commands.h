@@ -73,6 +73,9 @@
 * @Params: in: user_input = entire command (with args) entered by user
 *          in/out: iluvatar = IluvatarSon issuing command
 *		   in: fd_arda = Arda's file descriptor (connected to server)
+*          in/out: users_list = list of users
+*          in/out: mutex = screen mutex to prevent writing to screen
+*                  simultaneously
 * @Return: 0 if EXIT command entered, otherwise 1.
 *********************************************************************/
 int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda, BidirectionalList *users_list,/* semaphore *sem_mq,*/ pthread_mutex_t *mutex);
