@@ -22,12 +22,12 @@
 #define GCP_COUNT_TYPE					0x08
 
 /* Headers */
-#define GPC_CONNECT_SON_HEADER			"NEW_SON\0" 
+#define GCP_CONNECT_HEADER				"NEW_SON\0" 
 #define GPC_UPDATE_USERS_HEADER_IN		"LIST_REQUEST\0"
 #define GPC_UPDATE_USERS_HEADER_OUT		"LIST_RESPONSE\0"
-#define GPC_SEND_MSG_HEADER_IN	        "MSG\0"
-#define GPC_SEND_FILE_INFO_HEADER_IN	"NEW_FILE\0"
-#define GPC_SEND_FILE_DATA_HEADER_IN	"FILE_DATA\0"
+#define GCP_SEND_MSG_HEADER		        "MSG\0"
+#define GCP_SEND_FILE_INFO_HEADER		"NEW_FILE\0"
+#define GCP_SEND_FILE_DATA_HEADER		"FILE_DATA\0"
 #define GPC_SEND_FILE_HEADER_OK_OUT	    "CHECK_OK\0"
 #define GPC_SEND_FILE_HEADER_KO_OUT	    "CHECK_KO\0"
 #define GPC_HEADER_CONOK            	"CONOK\0"
@@ -35,11 +35,12 @@
 #define GPC_HEADER_MSGKO             	"MSGKO\0"
 #define GPC_HEADER_CONKO            	"CONKO\0"
 #define GPC_EXIT_HEADER					"EXIT\0"
-#define GPC_UNKNOWN_CMD_HEADER      	"UNKNOWN\0"
+#define GCP_UNKNOWN_CMD_HEADER      	"UNKNOWN\0"
 #define GCP_COUNT_MSG_HEADER			"NEW_MSG\0"
 
 /* Messages */
-#define GCP_WRONG_FORMAT_ERROR_MSG		"ERROR: Wrong frame format for selected type.\nCorrect format: type: 0x0%d header: %s data: <username>\n"
+#define GCP_WRONG_FORMAT_ERROR_MSG		"ERROR: Wrong frame format for selected type.\nCorrect format: type: 0x0%d header: %s data: <data>\n"
+#define GCP_WRONG_FORMAT_NULL_ERROR_MSG "ERROR: Wrong frame format for selected type.\nCorrect format: type: 0x0%d header: %s data: NULL\n"
 
 /* Other constants */
 #define GPC_DATA_SEPARATOR				'&'
@@ -47,6 +48,10 @@
 #define GPC_FILE_MAX_BYTES			    512
 #define GCP_FRAME_OK					1
 #define GCP_FRAME_KO					0
+#define GCP_WRITE_OK					1
+#define GCP_WRITE_KO					0
+#define GCP_READ_OK						1
+#define GCP_READ_KO						0
 
 /*********************************************************************
 * @Purpose: Checks the header and data fields of a frame to be sent.
@@ -54,7 +59,7 @@
 * @Return: Returns GCP_FRAME_OK if the frame fields match the type,
 *          otherwise GCP_FRAME_KO.
 *********************************************************************/
-char GCP_checkSendFrame(char type, char *header, char *data);
+char GCP_checkFrameFormat(char type, char *header, char *data);
 
 /**********************************************************************
 * @Purpose: Reads a frame sent through the network.

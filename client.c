@@ -3,7 +3,7 @@
 * @Authors: Claudia Lajara Silvosa
 *           Angel Garcia Gascon
 * @Date: 10/12/2022
-* @Last change: 07/01/2023
+* @Last change: 09/01/2023
 *********************************************************************/
 #include "client.h"
 
@@ -142,11 +142,30 @@ char CLIENT_manageArdaServerAnswer(Client *c, BidirectionalList *users_list, pth
 char CLIENT_sendMsg(Client *c, char **data, pthread_mutex_t *mutex) {
 	char *header = NULL;
 	char type = 0x07;
+	char *buffer = NULL;
 
-	// Send the message
-	GPC_writeFrame(c->server_fd, 0x03, GPC_SEND_MSG_HEADER_IN, *data, strlen(*data));
-	free(*data);
-	*data = NULL;
+	// check frame
+	if (GCP_FRAME_OK == GCP_checkFrameFormat(GCP_SEND_MSG_TYPE, GCP_SEND_MSG_HEADER, *data)) {
+	    // Send the message
+		GPC_writeFrame(c->server_fd, GCP_SEND_MSG_TYPE, GCP_SEND_MSG_HEADER, *data, strlen(*data));
+		free(*data);
+		*data = NULL;
+	} else {
+	    // error
+		asprintf(&buffer, GCP_WRONG_FORMAT_ERROR_MSG, GCP_SEND_MSG_TYPE, GCP_SEND_MSG_HEADER);
+		pthread_mutex_lock(mutex);
+		printMsg(COLOR_RED_TXT);
+		printMsg(buffer);
+		printMsg(COLOR_DEFAULT_TXT);
+		pthread_mutex_unlock(mutex);
+		// free memory
+		free(*data);
+		*data = NULL;
+		free(buffer);
+		buffer = NULL;
+		return (1);
+	}
+	
 	// Get the answer
 	GPC_readFrame(c->server_fd, &type, &header, NULL);
 
@@ -178,9 +197,34 @@ char CLIENT_sendMsg(Client *c, char **data, pthread_mutex_t *mutex) {
 char CLIENT_sendFile(Client *c, char **data, int *fd_file, int file_size, pthread_mutex_t *mutex) {
 	char *header = NULL;
 	char type = 0x07;
+	char *buffer = NULL;
 
+	// check frame
+	if (GCP_FRAME_KO == GCP_checkFrameFormat(GCP_SEND_FILE_TYPE, GCP_SEND_FILE_INFO_HEADER, *data)) {
+	    // error
+		asprintf(&buffer, GCP_WRONG_FORMAT_ERROR_MSG, GCP_SEND_FILE_TYPE, GCP_SEND_FILE_INFO_HEADER);
+		pthread_mutex_lock(mutex);
+		printMsg(COLOR_RED_TXT);
+		printMsg(buffer);
+		printMsg(COLOR_DEFAULT_TXT);
+		pthread_mutex_unlock(mutex);
+		// free memory
+		free(*data);
+		*data = NULL;
+		free(buffer);
+		buffer = NULL;
+		close(*fd_file);
+		return (1);
+	}
+	
 	// Send the information message
-	GPC_writeFrame(c->server_fd, 0x04, GPC_SEND_FILE_INFO_HEADER_IN, *data, strlen(*data));
+	if (GCP_WRITE_KO == GPC_writeFrame(c->server_fd, GCP_SEND_FILE_TYPE, GCP_SEND_FILE_INFO_HEADER, *data, strlen(*data))) {
+	    free(*data);
+		*data = NULL;
+		close(*fd_file);
+		return (1);
+	}
+	
 	free(*data);
 	*data = NULL;
 
@@ -189,7 +233,14 @@ char CLIENT_sendFile(Client *c, char **data, int *fd_file, int file_size, pthrea
 		*data = (char *) malloc(sizeof(char) * (GPC_FILE_MAX_BYTES + 1));
 		read(*fd_file, *data, GPC_FILE_MAX_BYTES);
 		(*data)[GPC_FILE_MAX_BYTES] = '\0';
-		GPC_writeFrame(c->server_fd, 0x04, GPC_SEND_FILE_DATA_HEADER_IN, *data, GPC_FILE_MAX_BYTES);			
+		
+		if (GCP_WRITE_KO == GPC_writeFrame(c->server_fd, GCP_SEND_FILE_TYPE, GCP_SEND_FILE_DATA_HEADER, *data, GPC_FILE_MAX_BYTES)) {
+		    free(*data);
+			*data = NULL;
+			close(*fd_file);
+			return (1);
+		}
+		
 		free(*data);
 		*data = NULL;
 		file_size -= GPC_FILE_MAX_BYTES;
@@ -198,7 +249,14 @@ char CLIENT_sendFile(Client *c, char **data, int *fd_file, int file_size, pthrea
 	*data = (char *) malloc(sizeof(char) * (file_size + 1));
 	read(*fd_file, *data, file_size);
 	(*data)[file_size] = '\0';
-	GPC_writeFrame(c->server_fd, 0x04, GPC_SEND_FILE_DATA_HEADER_IN, *data, file_size);
+	
+	if (GCP_WRITE_KO == GPC_writeFrame(c->server_fd, GCP_SEND_FILE_TYPE, GCP_SEND_FILE_DATA_HEADER, *data, file_size)) {
+	    free(*data);
+		*data = NULL;
+		close(*fd_file);
+		return (1);
+	}
+	
 	// free memory and close file
 	free(*data);
 	*data = NULL;

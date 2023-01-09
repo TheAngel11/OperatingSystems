@@ -46,7 +46,7 @@ pthread_mutex_t mutex_print = PTHREAD_MUTEX_INITIALIZER;
 * @Params: ----
 * @Return: ----
 *********************************************************************/
-void disconnectionManager(){
+void disconnectionManager() {
 	char *buffer = NULL;
 
 	// close thread
@@ -91,7 +91,7 @@ void disconnectionManager(){
 void sigintHandler() {
 	// Writing the exit frame
 	if (iluvatarSon.username != NULL) {
-		GPC_writeFrame(client.server_fd, 0x06, GPC_EXIT_HEADER, iluvatarSon.username, strlen(iluvatarSon.username));
+		GPC_writeFrame(client.server_fd, GCP_EXIT_TYPE, GPC_EXIT_HEADER, iluvatarSon.username, strlen(iluvatarSon.username));
 	}
 
 	disconnectionManager();
@@ -169,7 +169,26 @@ char connectToArda() {
 	asprintf(&buffer, "%s%c%s%c%d%c%d", iluvatarSon.username, GPC_DATA_SEPARATOR,
 	                                    iluvatarSon.ip_address, GPC_DATA_SEPARATOR,
 										iluvatarSon.port, GPC_DATA_SEPARATOR, getpid());
-	GPC_writeFrame(client.server_fd, 0x01, GPC_CONNECT_SON_HEADER, buffer, strlen(buffer));
+	// check frame
+	if (GCP_FRAME_OK == GCP_checkFrameFormat(GCP_CONNECT_TYPE, GCP_CONNECT_HEADER, buffer)) {
+	    GPC_writeFrame(client.server_fd, GCP_CONNECT_TYPE, GCP_CONNECT_HEADER, buffer, strlen(buffer));
+	} else {
+	    // error
+		if (NULL != buffer) {
+		    free(buffer);
+			buffer = NULL;
+		}
+		
+		asprintf(&buffer, GCP_WRONG_FORMAT_ERROR_MSG, GCP_CONNECT_TYPE, GCP_CONNECT_HEADER);
+		printMsg(COLOR_RED_TXT);
+		printMsg(buffer);
+		printMsg(COLOR_DEFAULT_TXT);
+		free(buffer);
+		buffer = NULL;
+		// terminate process
+		return (1);
+	}
+	
 	free(buffer);
 	buffer = NULL;
 	// wait for answer
@@ -180,20 +199,11 @@ char connectToArda() {
 	    printMsg(COLOR_RED_TXT);
 		printMsg(ARDA_CONNECTION_DENIED_MSG);
 		printMsg(COLOR_DEFAULT_TXT);
-
-		// Writing the exit frame
-		if (iluvatarSon.username != NULL) {
-			GPC_writeFrame(client.server_fd, 0x06, GPC_EXIT_HEADER, iluvatarSon.username, strlen(iluvatarSon.username));
-		}
-
 		// free mem
 		free(buffer);
 		buffer = NULL;
 		free(header);
 		header = NULL;
-		SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
-		BIDIRECTIONALLIST_destroy(&users_list);
-		close(client.server_fd);
 		return (1);
 	}
 
@@ -401,6 +411,7 @@ int main(int argc, char* argv[]) {
 		}
 
 		if (0 != connectToArda()) {
+			GPC_writeFrame(client.server_fd, GCP_EXIT_TYPE, GPC_EXIT_HEADER, iluvatarSon.username, strlen(iluvatarSon.username));
 			SHAREDFUNCTIONS_freeIluvatarSon(&iluvatarSon);
 			close(client.server_fd);
 			BIDIRECTIONALLIST_destroy(&users_list);

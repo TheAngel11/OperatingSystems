@@ -61,15 +61,17 @@ char checkFrameEmptyData(char *header, char *frame_header, unsigned short length
 * @Return: Returns GCP_FRAME_OK if the frame fields match the type,
 *          otherwise GCP_FRAME_KO.
 *********************************************************************/
-char GCP_checkSendFrame(char type, char *header, char *data) {
+char GCP_checkFrameFormat(char type, char *header, char *data) {
 	unsigned short length = (NULL == data) ? 0 : (unsigned short) strlen(data);
+			//TODO: debug
+			char *buf = NULL;
 
 	switch (type) {
 	    case GCP_CONNECT_TYPE:
 		    // header can be NEW_SON, CONOK or CONKO
-			if (GCP_FRAME_OK == checkFrameDataNotEmpty(GPC_CONNECT_SON_HEADER, header, length)) {
+			if (GCP_FRAME_OK == checkFrameDataNotEmpty(GCP_CONNECT_HEADER, header, length)) {
 			    return (GCP_FRAME_OK);
-			} else if (GCP_FRAME_OK == checkFrameEmptyData(GPC_HEADER_CONOK, header, length)) {
+			} else if (GCP_FRAME_OK == checkFrameDataNotEmpty(GPC_HEADER_CONOK, header, length)) {
 			    return (GCP_FRAME_OK);
 			}
 			
@@ -83,7 +85,7 @@ char GCP_checkSendFrame(char type, char *header, char *data) {
 			return (GCP_FRAME_OK);
 		case GCP_SEND_MSG_TYPE:
 			// header can be MSG, MSGOK or MSGKO
-			if (GCP_FRAME_OK == checkFrameDataNotEmpty(GPC_SEND_MSG_HEADER_IN, header, length)) {
+			if (GCP_FRAME_OK == checkFrameDataNotEmpty(GCP_SEND_MSG_HEADER, header, length)) {
 			    return (GCP_FRAME_OK);
 			} else if (GCP_FRAME_OK == checkFrameEmptyData(GPC_HEADER_MSGOK, header, length)) {
 			    return (GCP_FRAME_OK);
@@ -92,8 +94,14 @@ char GCP_checkSendFrame(char type, char *header, char *data) {
 			return (checkFrameEmptyData(GPC_HEADER_MSGKO, header, length));
 		case GCP_SEND_FILE_TYPE:
 		    // header can be NEW_FILE or FILE_DATA
-			if (GCP_FRAME_KO == checkFrameDataNotEmpty(GPC_SEND_FILE_INFO_HEADER_IN, header, length)) {
-			    return (checkFrameDataNotEmpty(GPC_SEND_FILE_DATA_HEADER_IN, header, length));
+			//TODO: debug
+			asprintf(&buf, "Length: %d\n", length);
+			printMsg(buf);
+			free(buf);
+			buf = NULL;
+			//TODO:end
+			if (GCP_FRAME_KO == checkFrameDataNotEmpty(GCP_SEND_FILE_INFO_HEADER, header, length)) {
+			    return (checkFrameDataNotEmpty(GCP_SEND_FILE_DATA_HEADER, header, length));
 			}
 			
 			return (GCP_FRAME_OK);
@@ -116,7 +124,7 @@ char GCP_checkSendFrame(char type, char *header, char *data) {
 		case GCP_COUNT_TYPE:
 			return (checkFrameDataNotEmpty(GCP_COUNT_MSG_HEADER, header, length));
 		default:
-			return (checkFrameEmptyData(GPC_UNKNOWN_CMD_HEADER, header, length));
+			return (checkFrameEmptyData(GCP_UNKNOWN_CMD_HEADER, header, length));
 	}
 
 	return (GCP_FRAME_KO);
@@ -128,7 +136,7 @@ char GCP_checkSendFrame(char type, char *header, char *data) {
 *          in/out: type = type of frame received.
 *          in/out: header = header to get from frame.
 *          in/out: data = data to get from frame.
-* @Return: Returns 1.
+* @Return: Returns GCP_READ_OK if no errors, otherwise GCP_READ_KO.
 ***********************************************************************/
 char GPC_readFrame(int fd, char *type, char **header, char **data) {
 	char byte = 0x07;
@@ -137,8 +145,8 @@ char GPC_readFrame(int fd, char *type, char **header, char **data) {
 	
 	n = read(fd, &byte, sizeof(char));
 	
-	if (n == 0) {
-		return (0);
+	if (n <= 0) {
+		return (GCP_READ_KO);
 	}
 
 	switch (byte) {
@@ -166,21 +174,39 @@ char GPC_readFrame(int fd, char *type, char **header, char **data) {
 	}
 
 	// skip '['
-	read(fd, &byte, sizeof(char));
+	if (-1 == read(fd, &byte, sizeof(char))) {
+	    return (GCP_READ_KO);
+	}
 
 	// read header
 	*header = SHAREDFUNCTIONS_readUntil(fd, ']');
+	if (NULL == *header) {
+	    return (GCP_READ_KO);
+	}
+
 	// read lenght (2 bytes)
-	read(fd, &length, 2);
+	if (-1 == read(fd, &length, 2)) {
+	    free(*header);
+		*header = NULL;
+		return (GCP_READ_KO);
+	}
 
 	// read data (lenght bytes)
 	if (0 < length) {
 	    *data = (char *) malloc (sizeof(char) * (length + 1));
-		read(fd, *data, sizeof(char) * length);
+		
+		if (-1 == read(fd, *data, sizeof(char) * length)) {
+		    free(*data);
+			*data = NULL;
+			free(*header);
+			*header = NULL;
+			return (GCP_READ_KO);
+		}
+
 		(*data)[length] = '\0';
 	}
 
-	return (1);
+	return (GCP_READ_OK);
 }
 
 /**********************************************************************
@@ -189,7 +215,7 @@ char GPC_readFrame(int fd, char *type, char **header, char **data) {
 * 		   in: type = type of frame to send.
 * 		   in: header = header of frame to send.
 * 		   in: data = data to send.
-* @Return: Returns 1.
+* @Return: Returns GCP_WRITE_OK if no errors, otherwise GCP_WRITE_KO.
 **********************************************************************/
 char GPC_writeFrame(int fd, char type, char *header, char *data, unsigned short length) {
 	char *frame = NULL;
@@ -248,10 +274,15 @@ char GPC_writeFrame(int fd, char type, char *header, char *data, unsigned short 
 	}
 
 	// write entire frame
-	write(fd, frame, size);
+	if (-1 == write(fd, frame, size)) {
+	    free(frame);
+		frame = NULL;
+		return (GCP_WRITE_KO);
+	}
+	
 	free(frame);
 	frame = NULL;
-	return (1);
+	return (GCP_WRITE_OK);
 }
 
 /**********************************************************************

@@ -609,7 +609,7 @@ char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 	switch (id) {
 	    case IS_UPDATE_USERS_CMD:			
 			// check frame
-			if (GCP_FRAME_OK == GCP_checkSendFrame(GCP_UPDATE_USERS_TYPE, GPC_UPDATE_USERS_HEADER_IN, iluvatar.username)) {
+			if (GCP_FRAME_OK == GCP_checkFrameFormat(GCP_UPDATE_USERS_TYPE, GPC_UPDATE_USERS_HEADER_IN, iluvatar.username)) {
 			    pthread_mutex_lock(mutex);
 				printMsg(UPDATE_USERS_SUCCESS_MSG);
 				pthread_mutex_unlock(mutex);
@@ -643,7 +643,7 @@ char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 			break;
 		default:
 		    // check frame
-			if (GCP_FRAME_OK == GCP_checkSendFrame(GCP_EXIT_TYPE, GPC_EXIT_HEADER, iluvatar.username)) {
+			if (GCP_FRAME_OK == GCP_checkFrameFormat(GCP_EXIT_TYPE, GPC_EXIT_HEADER, iluvatar.username)) {
 			    // exit command
 				GPC_writeFrame(fd_dest, GCP_EXIT_TYPE, GPC_EXIT_HEADER, iluvatar.username, strlen(iluvatar.username));
 			} else {
@@ -695,8 +695,9 @@ void freeMemCmd(char ***args, int *n_args) {
 *		   in: fd_arda = Arda's file descriptor (connected to server)
 * @Return: 0 if EXIT command entered, otherwise 1.
 *********************************************************************/
-int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda, BidirectionalList *users_list,/* semaphore *sem_mq,*/ pthread_mutex_t *mutex) {
+int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda, BidirectionalList *users_list, pthread_mutex_t *mutex) {
 	char **command = NULL;
+	char *buffer = NULL;
 	char error = 0;
 	int n_args = 0, cmd_id = 0;
 	int pid = -1, status = 0;
@@ -743,7 +744,21 @@ int COMMANDS_executeCommand(char *user_input, IluvatarSon *iluvatar, int fd_arda
 					pthread_mutex_lock(mutex);
 					printMsg(UNKNOWN_CMD_MSG);
 					pthread_mutex_unlock(mutex);
-					GPC_writeFrame(fd_arda, 0x07, GPC_UNKNOWN_CMD_HEADER, NULL, 0);
+					// check frame
+					if (GCP_FRAME_OK == GCP_checkFrameFormat(GCP_UNKNOWN_TYPE, GCP_UNKNOWN_CMD_HEADER, NULL)) {
+					    GPC_writeFrame(fd_arda, GCP_UNKNOWN_TYPE, GCP_UNKNOWN_CMD_HEADER, NULL, 0);
+					} else {
+					    // show error message
+						asprintf(&buffer, GCP_WRONG_FORMAT_ERROR_MSG, GCP_UNKNOWN_TYPE, GCP_UNKNOWN_CMD_HEADER);
+						pthread_mutex_lock(mutex);
+						printMsg(COLOR_RED_TXT);
+						printMsg(buffer);
+						printMsg(COLOR_DEFAULT_TXT);
+						pthread_mutex_unlock(mutex);
+						// free memory
+						free(buffer);
+						buffer = NULL;
+					}
 				}
 
 				break;
