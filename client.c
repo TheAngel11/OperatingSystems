@@ -264,7 +264,7 @@ char CLIENT_sendFile(Client *c, char **data, int *fd_file, int file_size, pthrea
 	// Get the md5sum answer
 	GPC_readFrame(c->server_fd, &type, &header, NULL);
 
-	if (0 == strcmp(header, GPC_SEND_FILE_HEADER_KO_OUT) || type != 0x05) {
+	if (0 == strcmp(header, GPC_SEND_FILE_HEADER_KO_OUT)) {
 	    // print error message
 		pthread_mutex_lock(mutex);
 		printMsg(COLOR_RED_TXT);
@@ -276,7 +276,7 @@ char CLIENT_sendFile(Client *c, char **data, int *fd_file, int file_size, pthrea
 		header = NULL;
 		close(c->server_fd);
 		return (1);
-	} else if (0 == strcmp(header, GPC_SEND_FILE_HEADER_OK_OUT) && type == 0x05) {
+	} else {
 	    pthread_mutex_lock(mutex);
 		printMsg("File correctly sent\n");
 		pthread_mutex_unlock(mutex);

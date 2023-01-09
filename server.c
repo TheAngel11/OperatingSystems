@@ -420,23 +420,12 @@ char answerSendFile(ServerIluvatar *s, char **data) {
 	*data = NULL;
 	// create file to copy received file
 	asprintf(&path, ".%s/%s", s->iluvatar->directory, filename);
-	
-	// TODO?: if file already exists check that it is not opened
-//	if (1 == checkFileExists(origin_user, filename)) {
-//	    pthread_mutex_lock(&s->server->mutex_file_fd);
-//		file_fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-//		pthread_mutex_unlock(&s->server->mutex_file_fd);
-//	} else {
-		file_fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-//	}
+	file_fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 			
 	while (file_size > GPC_FILE_MAX_BYTES) {
 		// Read the frame
 		GPC_readFrame(s->server->client_fd, &type, &header, &buffer);
-
-		if (buffer != NULL && strcmp(GPC_SEND_FILE_DATA_HEADER_IN, header) == 0 && type == 0x04) {
-			write(file_fd, buffer, GPC_FILE_MAX_BYTES);
-		}
+		write(file_fd, buffer, GPC_FILE_MAX_BYTES);
 
 		// free memory
 		if (buffer != NULL) {
@@ -452,11 +441,7 @@ char answerSendFile(ServerIluvatar *s, char **data) {
 
 	// Read the last frame
 	GPC_readFrame(s->server->client_fd, &type, &header, &buffer);
-			
-	if (buffer != NULL && strcmp(GPC_SEND_FILE_DATA_HEADER_IN, header) == 0 && type == 0x04) {
-		// Write into the file
-		write(file_fd, buffer, file_size);
-	}
+	write(file_fd, buffer, file_size);
 		
 	// free memory
 	if (buffer != NULL) {
@@ -472,10 +457,19 @@ char answerSendFile(ServerIluvatar *s, char **data) {
 	buffer = SHAREDFUNCTIONS_getMD5Sum(path);
 	free(path);
 	path = NULL;
+	//TODO:debug
+		pthread_mutex_lock(s->server->mutex_print);
+	printMsg("OG MD5SUM: ");
+	printMsg(md5sum);
+	printMsg("\nnew MD5SUM: ");
+	printMsg(buffer);
+	printMsg("\n");
+		pthread_mutex_unlock(s->server->mutex_print);
+	//TODO:end
 			
 	if (strcmp(buffer, md5sum) == 0) {
 		// Send OK frame
-		GPC_writeFrame(s->server->client_fd, 0x05, GPC_SEND_FILE_HEADER_OK_OUT, NULL, 0);
+		GPC_writeFrame(s->server->client_fd, GCP_SEND_FILE_TYPE, GPC_SEND_FILE_HEADER_OK_OUT, NULL, 0);
 		free(buffer);
 		buffer = NULL;
 		// Print the message
@@ -487,7 +481,7 @@ char answerSendFile(ServerIluvatar *s, char **data) {
 		buffer = NULL;
 	} else {
 		// Send KO frame
-		GPC_writeFrame(s->server->client_fd, 0x05, GPC_SEND_FILE_HEADER_KO_OUT, NULL, 0);
+		GPC_writeFrame(s->server->client_fd, GCP_SEND_FILE_TYPE, GPC_SEND_FILE_HEADER_KO_OUT, NULL, 0);
 		// free memory
 		free(buffer);
 		buffer = NULL;
@@ -537,12 +531,12 @@ void *iluvatarClient(void *args) {
 
 	switch (type) {            
 		// Send message petition
-		case 0x03:
+		case GCP_SEND_MSG_TYPE:
 			received_OK = answerSendMsg(s, &data);
 			break;
 
 		// Send file petition
-		case 0x04:
+		case GCP_SEND_FILE_TYPE:
 			received_OK = answerSendFile(s, &data);
 			break;
 

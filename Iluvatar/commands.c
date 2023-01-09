@@ -531,7 +531,7 @@ char sendMsgCommand(BidirectionalList clients, char *dest_username, char *messag
 * @Return: ----
 *********************************************************************/
 void sendFileCommand(BidirectionalList clients, char *dest_username, char *file, char *directory,
-                     char *origin_username, char *origin_ip,/* semaphore *sem_mq,*/ pthread_mutex_t *mutex) {
+                     char *origin_username, char *origin_ip, pthread_mutex_t *mutex) {
 	Element e;
 	char *buffer = NULL;
 
