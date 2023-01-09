@@ -642,8 +642,24 @@ char executeCustomCommand(int id, int fd_dest, IluvatarSon iluvatar, Bidirection
 		    sendFileCommand(*clients, command[2], command[3], iluvatar.directory, iluvatar.username, iluvatar.ip_address, mutex);
 			break;
 		default:
-		    // exit command
-			GPC_writeFrame(fd_dest, 0x06, GPC_EXIT_HEADER, iluvatar.username, strlen(iluvatar.username));
+		    // check frame
+			if (GCP_FRAME_OK == GCP_checkSendFrame(GCP_EXIT_TYPE, GPC_EXIT_HEADER, iluvatar.username)) {
+			    // exit command
+				GPC_writeFrame(fd_dest, GCP_EXIT_TYPE, GPC_EXIT_HEADER, iluvatar.username, strlen(iluvatar.username));
+			} else {
+			    // show error message
+				asprintf(&buffer, GCP_WRONG_FORMAT_ERROR_MSG, GCP_EXIT_TYPE, GPC_EXIT_HEADER);
+				pthread_mutex_lock(mutex);
+				printMsg(COLOR_RED_TXT);
+				printMsg(buffer);
+				printMsg(COLOR_DEFAULT_TXT);
+				pthread_mutex_unlock(mutex);
+				// free memory
+				free(buffer);
+				// do not exit
+				return (1);
+			}
+
 			break;
 	}
 
